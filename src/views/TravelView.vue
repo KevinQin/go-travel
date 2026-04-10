@@ -126,9 +126,13 @@
           <!-- 当前位置 -->
           <div class="location-info">
             <h4>当前位置</h4>
-            <p>{{ userStore.currentLocation.name }}, {{ userStore.currentLocation.country }}</p>
+            <p v-if="detailedLocation">{{ detailedLocation }}</p>
+            <p v-else>{{ userStore.currentLocation.name }}, {{ userStore.currentLocation.country }}</p>
             <div class="coordinates">
               {{ formatCoordinates(userStore.currentLocation.coordinates) }}
+            </div>
+            <div v-if="fullAddress" class="detailed-address">
+              <small>{{ fullAddress }}</small>
             </div>
           </div>
           
@@ -316,6 +320,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { getAllCountries, locations } from '@/data/locations'
 import { provinces } from '@/data/provinces'
+import { formatLocation, getFullAddress } from '@/utils/locationService'
 import { calculateDistance } from '@/utils/map'
 import AMap from '@/components/map/AMap.vue'
 import { ElMessage, ElNotification } from 'element-plus'
@@ -336,7 +341,7 @@ const currentRoutePointDescription = ref('')
 const amapApiKey = ref(import.meta.env.VITE_AMAP_API_KEY || 'ba512535f4f46cbcec76a1398f9ec400')
 const mapComponent = ref<InstanceType<typeof AMap> | null>(null)
 const mapCenter = ref<[number, number]>([116.397428, 39.90923]) // 北京
-const mapZoom = ref(5)
+const mapZoom = ref(15)
 const currentTravelPath = ref<{
   from: [number, number]
   to: [number, number]
@@ -360,8 +365,8 @@ const mapProvinces = computed(() => {
 
 const currentPosition = computed(() => {
   // 优先使用模拟中的位置
-  if (userStore.simulatedPosition) {
-    return userStore.simulatedPosition
+  if (userStore.currentSimulatedPosition) {
+    return userStore.currentSimulatedPosition
   }
   
   // 如果没有模拟位置，使用当前位置
@@ -374,6 +379,16 @@ const currentPosition = computed(() => {
 
 const traveledPath = computed(() => {
   return userStore.traveledPath
+})
+
+const detailedLocation = computed(() => {
+  if (!currentPosition.value) return null
+  return formatLocation(currentPosition.value)
+})
+
+const fullAddress = computed(() => {
+  if (!currentPosition.value) return null
+  return getFullAddress(currentPosition.value)
 })
 
 const mountInfo = computed(() => {
@@ -573,16 +588,12 @@ const toggleTravelMode = () => {
   travelMode.value = travelMode.value === 'random' ? 'specific' : 'random'
 }
 
-// 监听旅行状态变化
-watch(() => userStore.travelStatus.isTraveling, (isTraveling) => {
-  if (isTraveling) {
-    // 更新地图路径
-    updateMapPath()
-  } else {
-    // 清理目的地标记
-    if (mapComponent.value) {
-      mapComponent.value.clearDestinationMarker()
-    }
+// 监听当前位置变化，更新地图中心
+watch(currentPosition, (newPosition) => {
+  if (newPosition && mapComponent.value) {
+    mapCenter.value = newPosition
+    // 调用地图的 flyTo 方法平滑移动
+    mapComponent.value.flyTo(newPosition, 15)
   }
 })
 

@@ -142,7 +142,7 @@ const mapType = ref<'normal' | 'satellite'>('normal')
 
 // 地图元素引用
 const currentPositionMarker = ref<any>(null)
-const travelPathPolyline = ref<any>(null)
+// const travelPathPolyline = ref<any>(null) // 不再使用
 const traveledPathPolyline = ref<any>(null)
 const provinceMarkers = ref<any[]>([])
 const destinationMarker = ref<any>(null)
@@ -182,10 +182,10 @@ const initMap = async () => {
     // 添加省份标记
     addProvinceMarkers(map)
     
-    // 添加旅行路径
-    if (props.travelPath) {
-      addTravelPath(map, props.travelPath)
-    }
+    // 添加旅行路径（移除，只显示已走过的路径）
+    // if (props.travelPath) {
+    //   addTravelPath(map, props.travelPath)
+    // }
     
     // 添加当前位置标记
     if (props.currentPosition) {
@@ -260,29 +260,10 @@ const addProvinceMarkers = (map: any) => {
   }
 }
 
-// 添加旅行路径
-const addTravelPath = (map: any, travelPath: { from: [number, number], to: [number, number], color?: string }) => {
-  // 清理之前的路径
-  if (travelPathPolyline.value) {
-    travelPathPolyline.value.setMap(null)
-  }
-  
-  const path = [
-    new window.AMap.LngLat(travelPath.from[0], travelPath.from[1]),
-    new window.AMap.LngLat(travelPath.to[0], travelPath.to[1])
-  ]
-  
-  travelPathPolyline.value = new window.AMap.Polyline({
-    path,
-    strokeColor: travelPath.color || '#4CAF50',
-    strokeWeight: 3,
-    strokeOpacity: 0.6,
-    strokeStyle: 'solid',
-    lineJoin: 'round',
-    lineCap: 'round'
-  })
-  
-  travelPathPolyline.value.setMap(map)
+// 添加旅行路径（移除，只显示已走过的路径）
+const addTravelPath = (_map: any, _travelPath: { from: [number, number], to: [number, number], color?: string }) => {
+  // 不再显示起点到终点的路径
+  // 只显示已走过的路径
 }
 
 // 添加当前位置标记
@@ -333,7 +314,7 @@ const addCurrentPositionMarker = (map: any, position: [number, number]) => {
   currentPositionMarker.value.setMap(map)
 }
 
-// 添加已走过的路径
+// 添加已走过的路径（虚线）
 const addTraveledPath = (map: any, pathPoints: [number, number][]) => {
   // 清理之前的路径
   if (traveledPathPolyline.value) {
@@ -349,7 +330,8 @@ const addTraveledPath = (map: any, pathPoints: [number, number][]) => {
     strokeColor: '#2196F3', // 蓝色，类似跑步应用的轨迹
     strokeWeight: 4,
     strokeOpacity: 0.8,
-    strokeStyle: 'solid',
+    strokeStyle: 'dashed', // 虚线
+    lineDash: [10, 5], // 虚线样式
     lineJoin: 'round',
     lineCap: 'round',
     zIndex: 50

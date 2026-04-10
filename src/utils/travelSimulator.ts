@@ -229,7 +229,7 @@ export class TravelSimulator {
         }
       }
       
-      // 更新进度
+      // 更新进度和当前位置
       onProgress(progress, currentPosition)
       
       // 检查是否完成

@@ -78,6 +78,9 @@ export const useUserStore = defineStore('user', () => {
   // 当前讲解点
   const currentRoutePoint = ref<number>(0)
 
+  // 模拟中的当前位置
+  const simulatedPosition = ref<[number, number] | null>(null)
+
   // 计算属性
   const visitedCount = computed(() => userData.value.visitedLocations.length)
   
@@ -100,9 +103,14 @@ export const useUserStore = defineStore('user', () => {
   })
 
   // 获取模拟中的当前位置（用于地图显示）
-  const simulatedPosition = computed(() => {
-    if (!travelSimulator.value) return undefined
-    return travelSimulator.value.getCurrentPosition()
+  const currentSimulatedPosition = computed(() => {
+    if (simulatedPosition.value) {
+      return simulatedPosition.value
+    }
+    if (travelSimulator.value) {
+      return travelSimulator.value.getCurrentPosition()
+    }
+    return undefined
   })
 
   // 选择省份并自动开始漫游
@@ -209,8 +217,10 @@ export const useUserStore = defineStore('user', () => {
     // 开始模拟
     travelSimulator.value.start(
       // 进度回调
-      (progress) => {
+      (progress, currentPosition) => {
         travelStatus.value.progress = progress
+        // 更新模拟中的当前位置
+        simulatedPosition.value = currentPosition
       },
       // 讲解点回调
       (point) => {
@@ -247,6 +257,9 @@ export const useUserStore = defineStore('user', () => {
     travelStatus.value.progress = 0
     destination.value = null
     travelStartTime.value = null
+    
+    // 重置模拟位置
+    simulatedPosition.value = null
 
     // 清理模拟器
     if (travelSimulator.value) {
@@ -427,7 +440,7 @@ export const useUserStore = defineStore('user', () => {
     currentSpeed,
     currentTransport,
     traveledPath,
-    simulatedPosition,
+    currentSimulatedPosition,
     
     // 方法
     selectProvince,
