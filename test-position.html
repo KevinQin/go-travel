@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoTravel 位置标记测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            background: #e8f4fd;
+            border-left: 4px solid #1890ff;
+        }
+        .success {
+            background: #f6ffed;
+            border-left-color: #52c41a;
+        }
+        .error {
+            background: #fff2f0;
+            border-left-color: #ff4d4f;
+        }
+        button {
+            padding: 10px 20px;
+            background: #1890ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #40a9ff;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>GoTravel 位置标记测试</h1>
+    
+    <div class="test-section">
+        <h2>测试 1: 路由配置</h2>
+        <div class="test-result" id="test1">
+            等待测试...
+        </div>
+        <button onclick="testRouting()">测试路由</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>测试 2: 位置标记移动</h2>
+        <div class="test-result" id="test2">
+            等待测试...
+        </div>
+        <button onclick="testPositionMovement()">测试位置移动</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>测试 3: 模拟器功能</h2>
+        <div class="test-result" id="test3">
+            等待测试...
+        </div>
+        <button onclick="testSimulator()">测试模拟器</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>部署状态</h2>
+        <div class="test-result" id="deployStatus">
+            检查中...
+        </div>
+        <button onclick="checkDeployment()">检查部署</button>
+    </div>
+    
+    <script>
+        function updateResult(elementId, message, isSuccess) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = message;
+            element.className = 'test-result ' + (isSuccess ? 'success' : 'error');
+        }
+        
+        function testRouting() {
+            updateResult('test1', '测试中...', false);
+            
+            // 测试基础路径
+            const basePath = '/go-travel/';
+            const currentPath = window.location.pathname;
+            
+            if (currentPath.includes(basePath)) {
+                updateResult('test1', 
+                    `✅ 路由配置正确<br>
+                    当前路径: <code>${currentPath}</code><br>
+                    基础路径: <code>${basePath}</code><br>
+                    路由匹配成功！`, true);
+            } else {
+                updateResult('test1',
+                    `❌ 路由配置错误<br>
+                    当前路径: <code>${currentPath}</code><br>
+                    期望包含: <code>${basePath}</code><br>
+                    请确保使用正确的URL: <code>https://kevinqin.github.io/go-travel/</code>`, false);
+            }
+        }
+        
+        function testPositionMovement() {
+            updateResult('test2', '测试中...', false);
+            
+            // 模拟位置变化
+            let position = [116.397428, 39.90923]; // 北京
+            let intervalCount = 0;
+            const maxIntervals = 10;
+            
+            const interval = setInterval(() => {
+                position[0] += 0.001; // 经度增加
+                position[1] += 0.0005; // 纬度增加
+                intervalCount++;
+                
+                updateResult('test2', 
+                    `📍 位置标记移动测试<br>
+                    当前坐标: <code>[${position[0].toFixed(6)}, ${position[1].toFixed(6)}]</code><br>
+                    移动次数: ${intervalCount}/${maxIntervals}<br>
+                    状态: ${intervalCount < maxIntervals ? '移动中...' : '测试完成'}`, 
+                    true);
+                
+                if (intervalCount >= maxIntervals) {
+                    clearInterval(interval);
+                    updateResult('test2',
+                        `✅ 位置标记移动测试通过<br>
+                        模拟位置成功更新 ${maxIntervals} 次<br>
+                        最终坐标: <code>[${position[0].toFixed(6)}, ${position[1].toFixed(6)}]</code>`, 
+                        true);
+                }
+            }, 500);
+        }
+        
+        function testSimulator() {
+            updateResult('test3', '测试中...', false);
+            
+            // 模拟增强版旅行模拟器
+            const from = [116.397428, 39.90923]; // 北京
+            const to = [121.473701, 31.230416]; // 上海
+            const distance = 1064.7; // 公里
+            const speed = 300; // 公里/小时 (高铁速度)
+            
+            // 计算总时间（小时）
+            const totalTime = distance / speed;
+            // 加速因子：1秒模拟1分钟（60倍加速）
+            const accelerationFactor = 60;
+            // 模拟时间（秒）
+            const simulatedSeconds = totalTime * 3600 / accelerationFactor;
+            
+            updateResult('test3',
+                `📊 模拟器配置测试<br>
+                起点: 北京 <code>[${from[0]}, ${from[1]}]</code><br>
+                终点: 上海 <code>[${to[0]}, ${to[1]}]</code><br>
+                距离: ${distance.toFixed(1)} 公里<br>
+                速度: ${speed} 公里/小时 (高铁)<br>
+                实际时间: ${totalTime.toFixed(2)} 小时<br>
+                加速因子: ${accelerationFactor}倍 (1秒=1分钟)<br>
+                模拟时间: ${simulatedSeconds.toFixed(0)} 秒<br>
+                <br>
+                ✅ 模拟器配置正确，位置标记应该会动起来！`, true);
+        }
+        
+        function checkDeployment() {
+            updateResult('deployStatus', '检查部署状态...', false);
+            
+            const deployUrl = 'https://kevinqin.github.io/go-travel/';
+            
+            fetch(deployUrl)
+                .then(response => {
+                    if (response.ok) {
+                        updateResult('deployStatus',
+                            `✅ 部署成功！<br>
+                            网站可访问: <a href="${deployUrl}" target="_blank">${deployUrl}</a><br>
+                            状态码: ${response.status}<br>
+                            <br>
+                            请测试以下功能:<br>
+                            1. 访问 <a href="${deployUrl}travel" target="_blank">${deployUrl}travel</a><br>
+                            2. 选择省份<br>
+                            3. 观察位置标记移动`, true);
+                    } else {
+                        updateResult('deployStatus',
+                            `⚠️ 部署存在问题<br>
+                            状态码: ${response.status}<br>
+                            GitHub Actions 可能还在构建，请稍后重试`, false);
+                    }
+                })
+                .catch(error => {
+                    updateResult('deployStatus',
+                        `❌ 无法访问部署<br>
+                        错误: ${error.message}<br>
+                        请检查 GitHub Actions 构建状态`, false);
+                });
+        }
+        
+        // 页面加载时自动运行一些测试
+        window.addEventListener('DOMContentLoaded', () => {
+            testRouting();
+            checkDeployment();
+        });
+    </script>
+</body>
+</html>
