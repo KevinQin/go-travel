@@ -10,34 +10,75 @@
             </div>
             <div class="mount-info">
               <span class="mount-label">坐骑：</span>
-              <span class="mount-name">{{ userStore.selectedProvince?.icon || '无' }}</span>
+              <span class="mount-name">{{ userStore.selectedProvince?.icon || '🐾' }} {{ userStore.selectedProvince?.mount || '无' }}</span>
             </div>
           </div>
           
           <div class="travel-stats">
             <div class="stat">
+              <span class="stat-label">速度：</span>
+              <span class="stat-value">{{ userStore.travelStatus.speed }} km/h</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">模式：</span>
+              <span class="stat-value">{{ getTransportLabel(userStore.travelStatus.transport) }}</span>
+            </div>
+            <div class="stat">
               <span class="stat-label">里程：</span>
               <span class="stat-value">{{ userStore.userData.totalDistance.toLocaleString() }} km</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">地点：</span>
-              <span class="stat-value">{{ userStore.visitedCount }} 个</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">国家：</span>
-              <span class="stat-value">{{ userStore.visitedCountries.length }} 个</span>
             </div>
           </div>
           
           <div class="action-buttons">
-            <el-button type="primary" @click="startRandomTravel" :loading="isTraveling">
+            <el-button 
+              v-if="!userStore.travelStatus.isTraveling" 
+              type="primary" 
+              @click="startNewTravel"
+              :disabled="!userStore.selectedProvince"
+            >
               <el-icon><Promotion /></el-icon>
               开始漫游
+            </el-button>
+            <el-button 
+              v-else 
+              type="warning" 
+              @click="skipCurrentTravel"
+            >
+              <el-icon><CircleClose /></el-icon>
+              跳过当前
             </el-button>
             <el-button @click="$router.push('/rankings')">
               <el-icon><Trophy /></el-icon>
               排行榜
             </el-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 旅行进度条 -->
+    <div v-if="userStore.travelStatus.isTraveling" class="travel-progress-bar">
+      <div class="container">
+        <div class="progress-content">
+          <div class="progress-info">
+            <div class="from-to">
+              <span class="location">{{ userStore.currentLocation?.name || '未知' }}</span>
+              <el-icon><Right /></el-icon>
+              <span class="location">{{ userStore.destination?.name || '未知' }}</span>
+            </div>
+            <div class="progress-stats">
+              <span class="stat">距离：{{ userStore.travelStatus.distance.toLocaleString() }} km</span>
+              <span class="stat">时间：{{ formatTime(userStore.travelStatus.time) }}</span>
+              <span class="stat">进度：{{ userStore.travelStatus.progress.toFixed(1) }}%</span>
+            </div>
+          </div>
+          <div class="progress-bar-container">
+            <el-progress 
+              :percentage="userStore.travelStatus.progress" 
+              :stroke-width="12"
+              :color="userStore.selectedProvince?.color || '#4CAF50'"
+              :show-text="false"
+            />
           </div>
         </div>
       </div>
@@ -67,10 +108,7 @@
           <h3>地图加载中...</h3>
           <p>正在初始化高德地图</p>
           <div class="loading-actions">
-            <el-button type="primary" @click="simulateTravel">
-              模拟漫游（测试用）
-            </el-button>
-            <el-button @click="initMap">
+            <el-button type="primary" @click="initMap">
               重试加载
             </el-button>
           </div>
@@ -78,18 +116,69 @@
       </div>
       
       <!-- 地图覆盖层信息 -->
-      <div v-if="isMapReady && (currentLocation || destination)" class="map-overlay">
+      <div v-if="isMapReady && userStore.currentLocation" class="map-overlay">
         <div class="overlay-content">
-          <div class="location-info" v-if="currentLocation">
+          <!-- 当前位置 -->
+          <div class="location-info">
             <h4>当前位置</h4>
-            <p>{{ currentLocation.name }}, {{ currentLocation.country }}</p>
+            <p>{{ userStore.currentLocation.name }}, {{ userStore.currentLocation.country }}</p>
+            <div class="coordinates">
+              {{ formatCoordinates(userStore.currentLocation.coordinates) }}
+            </div>
           </div>
           
-          <div class="destination-info" v-if="destination">
+          <!-- 目的地 -->
+          <div v-if="userStore.destination" class="destination-info">
             <h4>目的地</h4>
-            <p>{{ destination.name }}, {{ destination.country }}</p>
-            <div class="distance" v-if="travelDistance > 0">
-              距离：{{ travelDistance.toLocaleString() }} km
+            <p>{{ userStore.destination.name }}, {{ userStore.destination.country }}</p>
+            <div class="distance">
+              距离：{{ userStore.travelStatus.distance.toLocaleString() }} km
+            </div>
+            <div class="eta">
+              预计到达：{{ formatETA() }}
+            </div>
+          </div>
+          
+          <!-- 沿途讲解点 -->
+          <div v-if="userStore.routePoints.length > 0" class="route-points">
+            <h4>沿途讲解点</h4>
+            <div class="points-list">
+              <div 
+                v-for="(point, index) in userStore.routePoints.slice(0, 3)" 
+                :key="index"
+                class="point-item"
+                :class="{ 'current': index === userStore.currentRoutePoint }"
+              >
+                <div class="point-marker" :style="{ backgroundColor: userStore.selectedProvince?.color }">
+                  {{ index + 1 }}
+                </div>
+                <div class="point-info">
+                  <div class="point-name">{{ point.name }}</div>
+                  <div class="point-distance">{{ point.distanceFromStart.toFixed(0) }} km</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 讲解点弹窗 -->
+      <div v-if="showRoutePointDialog" class="route-point-dialog">
+        <div class="dialog-content">
+          <div class="dialog-header">
+            <h3>沿途讲解</h3>
+            <el-button type="text" @click="showRoutePointDialog = false">
+              <el-icon><Close /></el-icon>
+            </el-button>
+          </div>
+          <div class="dialog-body">
+            <div class="point-description">
+              {{ currentRoutePointDescription }}
+            </div>
+            <div class="point-actions">
+              <el-button type="primary" @click="showRoutePointDialog = false">
+                继续旅行
+              </el-button>
             </div>
           </div>
         </div>
@@ -101,27 +190,55 @@
       <div class="container">
         <div class="panel-content">
           <div class="travel-controls">
-            <el-button-group>
-              <el-button @click="travelMode = 'random'" :type="travelMode === 'random' ? 'primary' : ''">
-                随机漫游
-              </el-button>
-              <el-button @click="travelMode = 'specific'" :type="travelMode === 'specific' ? 'primary' : ''">
-                指定目的地
-              </el-button>
-            </el-button-group>
+            <div class="control-section">
+              <h4>旅行控制</h4>
+              <div class="control-buttons">
+                <el-button 
+                  v-if="!userStore.travelStatus.isTraveling" 
+                  type="primary" 
+                  @click="startNewTravel"
+                  :disabled="!userStore.selectedProvince"
+                >
+                  <el-icon><Promotion /></el-icon>
+                  开始漫游
+                </el-button>
+                <el-button 
+                  v-else 
+                  type="warning" 
+                  @click="skipCurrentTravel"
+                >
+                  <el-icon><CircleClose /></el-icon>
+                  跳过当前
+                </el-button>
+                <el-button 
+                  @click="toggleTravelMode"
+                  :type="travelMode === 'random' ? 'primary' : ''"
+                >
+                  <el-icon><Refresh /></el-icon>
+                  {{ travelMode === 'random' ? '随机模式' : '指定模式' }}
+                </el-button>
+              </div>
+            </div>
             
-            <div class="destination-select" v-if="travelMode === 'specific'">
-              <el-select v-model="selectedCountry" placeholder="选择国家" style="width: 200px">
-                <el-option
-                  v-for="country in allCountries"
-                  :key="country"
-                  :label="country"
-                  :value="country"
-                />
-              </el-select>
-              <el-button type="primary" :disabled="!selectedCountry" @click="travelToCountry">
-                前往此国家
-              </el-button>
+            <div v-if="travelMode === 'specific'" class="destination-select">
+              <h4>指定目的地</h4>
+              <div class="select-controls">
+                <el-select v-model="selectedCountry" placeholder="选择国家" style="width: 200px">
+                  <el-option
+                    v-for="country in allCountries"
+                    :key="country"
+                    :label="country"
+                    :value="country"
+                  />
+                </el-select>
+                <el-button 
+                  type="primary" 
+                  :disabled="!selectedCountry" 
+                  @click="travelToCountry"
+                >
+                  前往此国家
+                </el-button>
+              </div>
             </div>
           </div>
           
@@ -137,6 +254,7 @@
                 <div class="location-info">
                   <div class="location-name">{{ location.name }}</div>
                   <div class="location-country">{{ location.country }}</div>
+                  <div class="location-distance">{{ getDistanceFromCurrent(location) }} km</div>
                 </div>
                 <el-icon><ArrowRight /></el-icon>
               </div>
@@ -169,14 +287,18 @@
           <p>{{ selectedLocation.description }}</p>
         </div>
         
+        <div class="location-coordinates">
+          坐标：{{ formatCoordinates(selectedLocation.coordinates) }}
+        </div>
+        
         <div class="location-actions">
           <el-button type="primary" @click="shareLocation">
             <el-icon><Share /></el-icon>
             分享
           </el-button>
-          <el-button @click="addToFavorites">
-            <el-icon><Star /></el-icon>
-            收藏
+          <el-button @click="travelToLocation(selectedLocation)">
+            <el-icon><Promotion /></el-icon>
+            前往此地
           </el-button>
         </div>
       </div>
@@ -185,29 +307,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { useRankingStore } from '@/stores/ranking'
-import { getRandomLocation, getAllCountries, locations } from '@/data/locations'
+import { getAllCountries, locations } from '@/data/locations'
 import { provinces } from '@/data/provinces'
+import { calculateDistance } from '@/utils/map'
 import AMap from '@/components/map/AMap.vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElNotification } from 'element-plus'
 import type { Location } from '@/types'
 
 const userStore = useUserStore()
-const rankingStore = useRankingStore()
 
 // 状态
 const isMapReady = ref(false)
-const isTraveling = ref(false)
-const showAnimation = ref(false)
 const travelMode = ref<'random' | 'specific'>('random')
 const selectedCountry = ref('')
 const showLocationDialog = ref(false)
 const selectedLocation = ref<Location | null>(null)
+const showRoutePointDialog = ref(false)
+const currentRoutePointDescription = ref('')
 
 // 地图相关
-const amapApiKey = ref(import.meta.env.VITE_AMAP_API_KEY || 'ba512535f4f46cbcec76a1398f9ec400') // 从环境变量获取，或使用默认测试key
+const amapApiKey = ref(import.meta.env.VITE_AMAP_API_KEY || 'ba512535f4f46cbcec76a1398f9ec400')
 const mapInstance = ref<any>(null)
 const mapCenter = ref<[number, number]>([116.397428, 39.90923]) // 北京
 const mapZoom = ref(5)
@@ -216,11 +337,6 @@ const currentTravelPath = ref<{
   to: [number, number]
   color?: string
 }>()
-
-// 旅行数据
-const currentLocation = ref<Location | null>(null)
-const destination = ref<Location | null>(null)
-const travelDistance = ref(0)
 
 // 计算属性
 const allCountries = computed(() => getAllCountries())
@@ -239,26 +355,25 @@ const mapProvinces = computed(() => {
 
 // 方法
 const initMap = () => {
-  // 从环境变量获取API Key，或使用默认值
   amapApiKey.value = import.meta.env.VITE_AMAP_API_KEY || 'ba512535f4f46cbcec76a1398f9ec400'
   
   if (!amapApiKey.value) {
     ElMessage.warning('高德地图API Key未配置，使用模拟模式')
-    simulateTravel()
+    isMapReady.value = true
     return
   }
   
   isMapReady.value = true
 }
 
-const simulateTravel = () => {
-  isMapReady.value = true
-  ElMessage.info('地图模拟模式已启用')
-}
-
 const handleMapReady = (map: any) => {
   mapInstance.value = map
   ElMessage.success('地图加载完成')
+  
+  // 如果正在旅行，更新地图显示
+  if (userStore.travelStatus.isTraveling && userStore.currentLocation && userStore.destination) {
+    updateMapPath()
+  }
 }
 
 const handleMapClick = (event: any) => {
@@ -269,47 +384,29 @@ const handleMarkerClick = (data: any) => {
   console.log('标记点击:', data)
 }
 
-const startRandomTravel = async () => {
+const startNewTravel = async () => {
   if (!userStore.selectedProvince) {
     ElMessage.warning('请先选择省份')
     return
   }
 
-  isTraveling.value = true
-  showAnimation.value = true
-
-  // 随机选择目的地
-  const newDestination = getRandomLocation()
-  destination.value = newDestination
-  
-  // 计算距离
-  if (currentLocation.value) {
-    const from = currentLocation.value.coordinates
-    const to = newDestination.coordinates
-    travelDistance.value = Math.round(
-      Math.sqrt(
-        Math.pow(to[0] - from[0], 2) + 
-        Math.pow(to[1] - from[1], 2)
-      ) * 100
-    ) * 100 // 简化计算
-  } else {
-    travelDistance.value = Math.floor(Math.random() * 5000) + 1000
-  }
-
-  // 更新旅行路径
-  if (currentLocation.value && mapInstance.value) {
-    currentTravelPath.value = {
-      from: currentLocation.value.coordinates,
-      to: newDestination.coordinates,
-      color: userStore.selectedProvince.color
-    }
+  try {
+    await userStore.startNewTravel()
+    ElMessage.success('开始新的漫游旅程！')
     
-    // 飞行动画
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    // 更新地图路径
+    updateMapPath()
+  } catch (error) {
+    console.error('开始旅行失败:', error)
+    ElMessage.error('开始旅行失败，请重试')
   }
+}
 
-  // 完成旅行
-  completeTravel(newDestination)
+const skipCurrentTravel = () => {
+  if (!userStore.travelStatus.isTraveling) return
+  
+  userStore.skipToDestination()
+  ElMessage.info('已跳过当前旅行')
 }
 
 const travelToCountry = () => {
@@ -325,34 +422,52 @@ const travelToCountry = () => {
   }
 
   const randomLocation = countryLocations[Math.floor(Math.random() * countryLocations.length)]
-  destination.value = randomLocation
-  travelDistance.value = Math.floor(Math.random() * 3000) + 500
-  
-  completeTravel(randomLocation)
+  travelToSpecificLocation(randomLocation)
 }
 
-const completeTravel = (location: Location) => {
-  // 更新用户数据（现在由 store 自动处理）
-  // userStore.addVisitedLocation(location)
-  // userStore.addDistance(travelDistance.value)
-  
-  // 更新排行榜
-  if (userStore.selectedProvince) {
-    rankingStore.addDistance(userStore.selectedProvince.id, travelDistance.value)
-    rankingStore.addVisitedCountry(userStore.selectedProvince.id)
+const travelToSpecificLocation = (location: Location) => {
+  if (!userStore.selectedProvince) {
+    ElMessage.warning('请先选择省份')
+    return
   }
 
-  // 重置状态
-  isTraveling.value = false
-  showAnimation.value = false
-  currentLocation.value = location
+  // TODO: 实现指定目的地的旅行
+  ElMessage.info('指定目的地功能开发中')
   
-  // 显示成功消息
-  ElMessage.success(`成功到达 ${location.name}！累计里程增加 ${travelDistance.value}km`)
-  
-  // 自动打开详情
+  // 临时：显示详情
   selectedLocation.value = location
   showLocationDialog.value = true
+}
+
+const travelToLocation = (location: Location) => {
+  travelToSpecificLocation(location)
+  showLocationDialog.value = false
+}
+
+const updateMapPath = () => {
+  if (!userStore.currentLocation || !userStore.destination) return
+  
+  currentTravelPath.value = {
+    from: userStore.currentLocation.coordinates,
+    to: userStore.destination.coordinates,
+    color: userStore.selectedProvince?.color
+  }
+  
+  // 更新地图中心点
+  if (mapInstance.value) {
+    const from = userStore.currentLocation.coordinates
+    const to = userStore.destination.coordinates
+    const center = [
+      (from[0] + to[0]) / 2,
+      (from[1] + to[1]) / 2
+    ]
+    mapInstance.value.setCenter(center)
+    
+    // 调整缩放级别
+    const distance = calculateDistance(from, to)
+    const zoom = Math.max(3, Math.min(8, 10 - Math.log2(distance / 1000)))
+    mapInstance.value.setZoom(zoom)
+  }
 }
 
 const viewLocation = (location: Location) => {
@@ -367,10 +482,6 @@ const shareLocation = () => {
   navigator.clipboard.writeText(text).then(() => {
     ElMessage.success('分享文案已复制到剪贴板')
   })
-}
-
-const addToFavorites = () => {
-  ElMessage.info('收藏功能开发中')
 }
 
 const getCategoryTagType = (category: string) => {
@@ -391,6 +502,78 @@ const getCategoryLabel = (category: string) => {
   }
 }
 
+const getTransportLabel = (transport: string) => {
+  switch (transport) {
+    case 'walking': return '步行'
+    case 'riding': return '骑行'
+    case 'flying': return '飞行'
+    case 'driving': return '驾驶'
+    default: return transport
+  }
+}
+
+const formatTime = (hours: number): string => {
+  if (hours < 1) {
+    return `${Math.round(hours * 60)}分钟`
+  } else if (hours < 24) {
+    return `${hours.toFixed(1)}小时`
+  } else {
+    return `${(hours / 24).toFixed(1)}天`
+  }
+}
+
+const formatCoordinates = (coords: [number, number]): string => {
+  const [lng, lat] = coords
+  const lngStr = lng >= 0 ? `${lng.toFixed(4)}°E` : `${Math.abs(lng).toFixed(4)}°W`
+  const latStr = lat >= 0 ? `${lat.toFixed(4)}°N` : `${Math.abs(lat).toFixed(4)}°S`
+  return `${latStr}, ${lngStr}`
+}
+
+const formatETA = (): string => {
+  if (!userStore.travelStatus.isTraveling) return '--'
+  
+  const remainingHours = userStore.travelStatus.time * (1 - userStore.travelStatus.progress / 100)
+  return formatTime(remainingHours)
+}
+
+const getDistanceFromCurrent = (location: Location): number => {
+  if (!userStore.currentLocation) return 0
+  return Math.round(calculateDistance(userStore.currentLocation.coordinates, location.coordinates))
+}
+
+const toggleTravelMode = () => {
+  travelMode.value = travelMode.value === 'random' ? 'specific' : 'random'
+}
+
+// 监听旅行状态变化
+watch(() => userStore.travelStatus.isTraveling, (isTraveling) => {
+  if (isTraveling) {
+    // 更新地图路径
+    updateMapPath()
+  }
+})
+
+watch(() => userStore.routePoints, (points) => {
+  if (points.length > 0) {
+    // 显示第一个讲解点
+    showRoutePointInfo(points[0].description)
+  }
+})
+
+const showRoutePointInfo = (description: string) => {
+  currentRoutePointDescription.value = description
+  showRoutePointDialog.value = true
+  
+  // 显示通知
+  ElNotification({
+    title: '沿途讲解',
+    message: description,
+    type: 'info',
+    duration: 5000,
+    position: 'bottom-right'
+  })
+}
+
 // 初始化
 onMounted(() => {
   if (!userStore.selectedProvince) {
@@ -398,20 +581,17 @@ onMounted(() => {
     setTimeout(() => {
       window.location.href = '/select'
     }, 1500)
+    return
   }
   
-  // 设置初始位置（用户省份坐标）
-  if (userStore.selectedProvince) {
-    currentLocation.value = {
-      id: 0,
-      name: userStore.selectedProvince.name,
-      country: '中国',
-      countryCode: 'CN',
-      coordinates: userStore.selectedProvince.coordinates,
-      description: `你的起点：${userStore.selectedProvince.name}`,
-      image: '',
-      category: 'city'
-    }
+  // 初始化地图
+  initMap()
+  
+  // 如果用户已选择省份但不在旅行中，自动开始新旅行
+  if (userStore.selectedProvince && !userStore.travelStatus.isTraveling) {
+    setTimeout(() => {
+      startNewTravel()
+    }, 2000)
   }
 })
 </script>
@@ -453,11 +633,22 @@ onMounted(() => {
   color: white;
   font-weight: 500;
   font-size: 0.875rem;
+  min-width: 60px;
+  text-align: center;
 }
 
-.icon-info {
+.mount-info {
   font-size: 0.875rem;
   color: var(--text-secondary);
+}
+
+.mount-label {
+  color: var(--text-secondary);
+}
+
+.mount-name {
+  font-weight: 500;
+  color: var(--text-primary);
 }
 
 .travel-stats {
@@ -467,10 +658,15 @@ onMounted(() => {
 
 .stat {
   font-size: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .stat-label {
   color: var(--text-secondary);
+  font-size: 0.75rem;
+  margin-bottom: 2px;
 }
 
 .stat-value {
@@ -481,6 +677,52 @@ onMounted(() => {
 .action-buttons {
   display: flex;
   gap: 8px;
+}
+
+/* 旅行进度条 */
+.travel-progress-bar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 12px 0;
+}
+
+.progress-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.from-to {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.location {
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+}
+
+.progress-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+.progress-bar-container {
+  flex: 1;
 }
 
 /* 地图区域 */
@@ -540,20 +782,20 @@ onMounted(() => {
   padding: 16px;
   box-shadow: var(--card-shadow);
   backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .location-info,
-.destination-info {
-  margin-bottom: 16px;
-}
-
-.location-info:last-child,
-.destination-info:last-child {
+.destination-info,
+.route-points {
   margin-bottom: 0;
 }
 
 .location-info h4,
-.destination-info h4 {
+.destination-info h4,
+.route-points h4 {
   margin: 0 0 8px;
   font-size: 0.875rem;
   color: var(--text-secondary);
@@ -566,11 +808,112 @@ onMounted(() => {
   color: var(--text-primary);
 }
 
-.distance {
+.coordinates,
+.distance,
+.eta {
   margin-top: 4px;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.eta {
   color: var(--primary-color);
   font-weight: 500;
+}
+
+.points-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.point-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #f9f9f9;
+  transition: background-color 0.2s;
+}
+
+.point-item.current {
+  background: #e3f2fd;
+  border-left: 3px solid var(--primary-color);
+}
+
+.point-marker {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.point-info {
+  flex: 1;
+}
+
+.point-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.point-distance {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* 讲解点弹窗 */
+.route-point-dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1001;
+  width: 90%;
+  max-width: 400px;
+}
+
+.dialog-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.dialog-body {
+  padding: 24px;
+}
+
+.point-description {
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin-bottom: 24px;
+}
+
+.point-actions {
+  display: flex;
+  justify-content: center;
 }
 
 /* 控制面板 */
@@ -589,14 +932,30 @@ onMounted(() => {
 .travel-controls {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
+}
+
+.control-section h4,
+.destination-select h4 {
+  margin: 0 0 16px;
+  color: var(--text-primary);
+}
+
+.control-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .destination-select {
+  margin-top: 8px;
+}
+
+.select-controls {
   display: flex;
   gap: 12px;
   align-items: center;
-  margin-top: 16px;
+  flex-wrap: wrap;
 }
 
 .recent-travels h4 {
@@ -625,16 +984,22 @@ onMounted(() => {
   background: #f0f0f0;
 }
 
-.location-info {
+.recent-item .location-info {
   flex: 1;
 }
 
-.location-name {
+.recent-item .location-name {
   font-weight: 500;
   color: var(--text-primary);
 }
 
-.location-country {
+.recent-item .location-country {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.recent-item .location-distance {
   font-size: 0.75rem;
   color: var(--text-secondary);
   margin-top: 2px;
@@ -669,6 +1034,13 @@ onMounted(() => {
   color: var(--text-primary);
 }
 
+.location-coordinates {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  font-family: monospace;
+}
+
 .location-actions {
   display: flex;
   gap: 12px;
@@ -687,17 +1059,30 @@ onMounted(() => {
     justify-content: space-between;
   }
   
+  .progress-info {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .progress-stats {
+    justify-content: space-between;
+  }
+  
   .panel-content {
     grid-template-columns: 1fr;
     gap: 24px;
   }
   
-  .map-simulation {
-    padding: 20px;
+  .map-overlay {
+    position: relative;
+    top: auto;
+    left: auto;
+    max-width: none;
+    margin: 20px;
   }
   
-  .simulation-content {
-    padding: 20px;
+  .route-point-dialog {
+    width: 95%;
   }
 }
 </style>

@@ -1,11 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Province, Location, UserData, TravelRecord, MountType } from '@/types'
+import type { Province, Location, UserData, TravelRecord, TravelStatus } from '@/types'
 import { getProvinceById } from '@/data/provinces'
 import { getRandomLocation } from '@/data/locations'
+import { TravelSimulator, calculateTravelTime } from '@/utils/travelSimulator'
+import { calculateDistance } from '@/utils/map'
 
 // 根据坐骑名称获取坐骑类型
-function getMountType(mount: string): MountType {
+function getMountType(mount: string): 'animal' | 'vehicle' | 'other' {
   const animalMounts = ['熊猫', '醒狮', '骏马', '骆驼', '大象']
   const vehicleMounts = ['高铁', '磁悬浮', '数字高铁']
   
@@ -18,24 +20,21 @@ function getMountType(mount: string): MountType {
   }
 }
 
-// 计算真实距离（使用高德地图API）
-async function calculateRealDistance(from: [number, number], to: [number, number]): Promise<number> {
-  // 这里应该调用高德地图的路径规划API
-  // 暂时使用简化计算
-  const R = 6371 // 地球半径（公里）
-  const dLat = (to[1] - from[1]) * Math.PI / 180
-  const dLng = (to[0] - from[0]) * Math.PI / 180
-  const a = 
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(from[1] * Math.PI / 180) * Math.cos(to[1] * Math.PI / 180) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return Math.round(R * c)
-}
-
-// 计算旅行时间（小时）
-function calculateTravelTime(distance: number, speed: number): number {
-  return Math.round((distance / speed) * 10) / 10
+// 根据坐骑类型获取行进模式
+function getTransportMode(mount: string): 'walking' | 'riding' | 'flying' | 'driving' {
+  const animalMounts = ['熊猫', '骆驼', '大象']
+  const ridingMounts = ['骏马', '醒狮']
+  const vehicleMounts = ['高铁', '磁悬浮', '数字高铁']
+  
+  if (animalMounts.includes(mount)) {
+    return 'walking'
+  } else if (ridingMounts.includes(mount)) {
+    return 'riding'
+  } else if (vehicleMounts.includes(mount)) {
+    return 'driving'
+  }
+  
+  return 'driving' // 默认
 }
 
 export const useUserStore = defineStore('user', () => {
@@ -50,14 +49,34 @@ export const useUserStore = defineStore('user', () => {
     travelRecords: []
   })
 
-  // 当前旅行状态
-  const isTraveling = ref(false)
+  // 旅行状态
+  const travelStatus = ref<TravelStatus>({
+    isTraveling: false,
+    progress: 0,
+    distance: 0,
+    time: 0,
+    speed: 0,
+    transport: 'driving'
+  })
+
+  // 当前旅行数据
   const currentLocation = ref<Location | null>(null)
   const destination = ref<Location | null>(null)
-  const travelProgress = ref(0) // 0-100
   const travelStartTime = ref<number | null>(null)
-  const travelDistance = ref(0)
-  const travelTime = ref(0) // 小时
+  
+  // 旅行模拟器实例
+  const travelSimulator = ref<TravelSimulator | null>(null)
+  
+  // 沿途讲解点
+  const routePoints = ref<Array<{
+    name: string
+    coordinates: [number, number]
+    description: string
+    distanceFromStart: number
+  }>>([])
+  
+  // 当前讲解点
+  const currentRoutePoint = ref<number>(0)
 
   // 计算属性
   const visitedCount = computed(() => userData.value.visitedLocations.length)
@@ -70,8 +89,8 @@ export const useUserStore = defineStore('user', () => {
   })
 
   const currentTransport = computed(() => {
-    if (!selectedProvince.value) return null
-    return selectedProvince.value.mount
+    if (!selectedProvince.value) return 'driving'
+    return getTransportMode(selectedProvince.value.mount)
   })
 
   // 选择省份并自动开始漫游
@@ -104,27 +123,30 @@ export const useUserStore = defineStore('user', () => {
   async function startNewTravel() {
     if (!selectedProvince.value || !currentLocation.value) return false
 
-    isTraveling.value = true
-    travelProgress.value = 0
-    travelStartTime.value = Date.now()
-
     // 选择随机目的地
     const newDestination = getRandomLocation()
     destination.value = newDestination
 
-    // 计算真实距离
-    const distance = await calculateRealDistance(
+    // 计算距离
+    const distance = calculateDistance(
       currentLocation.value.coordinates,
       newDestination.coordinates
     )
-    travelDistance.value = distance
 
-    // 计算旅行时间（基于省份交通方式的速度）
+    // 计算旅行时间
     const time = calculateTravelTime(distance, selectedProvince.value.speed)
-    travelTime.value = time
 
-    // 开始旅行进度模拟
-    startTravelProgress(time)
+    // 更新旅行状态
+    travelStatus.value = {
+      isTraveling: true,
+      progress: 0,
+      distance,
+      time,
+      speed: selectedProvince.value.speed,
+      transport: getTransportMode(selectedProvince.value.mount)
+    }
+
+    travelStartTime.value = Date.now()
 
     // 创建旅行记录
     const record: TravelRecord = {
@@ -139,31 +161,61 @@ export const useUserStore = defineStore('user', () => {
     }
 
     userData.value.travelRecords.push(record)
+
+    // 开始旅行模拟
+    startTravelSimulation(
+      currentLocation.value.coordinates,
+      newDestination.coordinates,
+      distance,
+      selectedProvince.value.speed,
+      selectedProvince.value.mount
+    )
     
     return true
   }
 
-  // 模拟旅行进度
-  function startTravelProgress(totalHours: number) {
-    const interval = 1000 // 每秒更新一次
-    const totalSteps = totalHours * 3600 // 总秒数
-    let currentStep = 0
+  // 开始旅行模拟
+  function startTravelSimulation(
+    from: [number, number],
+    to: [number, number],
+    distance: number,
+    speed: number,
+    mountType: string
+  ) {
+    // 停止现有的模拟器
+    if (travelSimulator.value) {
+      travelSimulator.value.stop()
+    }
 
-    const timer = setInterval(() => {
-      if (!isTraveling.value) {
-        clearInterval(timer)
-        return
-      }
+    // 创建新的模拟器
+    travelSimulator.value = new TravelSimulator(from, to, distance, speed, mountType)
+    
+    // 重置讲解点
+    routePoints.value = []
+    currentRoutePoint.value = 0
 
-      currentStep++
-      travelProgress.value = Math.min((currentStep / totalSteps) * 100, 100)
-
-      // 到达目的地
-      if (currentStep >= totalSteps) {
-        clearInterval(timer)
+    // 开始模拟
+    travelSimulator.value.start(
+      // 进度回调
+      (progress) => {
+        travelStatus.value.progress = progress
+      },
+      // 讲解点回调
+      (point) => {
+        // 显示讲解点信息
+        showRoutePointInfo(point.description)
+      },
+      // 完成回调
+      () => {
         completeTravel()
       }
-    }, interval)
+    )
+  }
+
+  // 显示讲解点信息
+  function showRoutePointInfo(description: string) {
+    console.log('到达讲解点:', description)
+    // 这里可以显示弹窗或通知
   }
 
   // 完成旅行
@@ -171,7 +223,7 @@ export const useUserStore = defineStore('user', () => {
     if (!currentLocation.value || !destination.value) return
 
     // 更新用户数据
-    userData.value.totalDistance += travelDistance.value
+    userData.value.totalDistance += travelStatus.value.distance
     userData.value.visitedLocations.push(destination.value)
     userData.value.visitedCountries.add(destination.value.country)
 
@@ -179,15 +231,27 @@ export const useUserStore = defineStore('user', () => {
     currentLocation.value = destination.value
 
     // 重置旅行状态
-    isTraveling.value = false
+    travelStatus.value.isTraveling = false
+    travelStatus.value.progress = 0
     destination.value = null
-    travelProgress.value = 0
     travelStartTime.value = null
 
-    // 自动开始下一次旅行
+    // 清理模拟器
+    if (travelSimulator.value) {
+      travelSimulator.value.stop()
+      travelSimulator.value = null
+    }
+
+    // 重置讲解点
+    routePoints.value = []
+    currentRoutePoint.value = 0
+
+    // 自动开始下一次旅行（3秒后）
     setTimeout(() => {
-      startNewTravel()
-    }, 3000) // 3秒后开始下一次旅行
+      if (selectedProvince.value) {
+        startNewTravel()
+      }
+    }, 3000)
 
     // 保存到本地存储
     saveToLocalStorage()
@@ -195,7 +259,15 @@ export const useUserStore = defineStore('user', () => {
 
   // 手动结束当前旅行（立即到达）
   function skipToDestination() {
-    if (!isTraveling.value) return
+    if (!travelStatus.value.isTraveling) return
+    
+    // 停止模拟器
+    if (travelSimulator.value) {
+      travelSimulator.value.stop()
+      travelSimulator.value = null
+    }
+    
+    // 直接完成旅行
     completeTravel()
   }
 
@@ -219,6 +291,22 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  // 获取当前旅行信息
+  function getCurrentTravelInfo() {
+    if (!travelStatus.value.isTraveling) return null
+    
+    return {
+      from: currentLocation.value?.name || '未知',
+      to: destination.value?.name || '未知',
+      progress: travelStatus.value.progress,
+      distance: travelStatus.value.distance,
+      time: travelStatus.value.time,
+      speed: travelStatus.value.speed,
+      transport: travelStatus.value.transport,
+      remainingTime: travelSimulator.value?.getRemainingTime() || 0
+    }
+  }
+
   // 本地存储
   function saveToLocalStorage() {
     const data = {
@@ -226,7 +314,9 @@ export const useUserStore = defineStore('user', () => {
       userData: {
         ...userData.value,
         visitedCountries: Array.from(userData.value.visitedCountries)
-      }
+      },
+      currentLocation: currentLocation.value,
+      travelStatus: travelStatus.value
     }
     localStorage.setItem('gotravel_user', JSON.stringify(data))
   }
@@ -244,7 +334,9 @@ export const useUserStore = defineStore('user', () => {
           selectedProvince.value = province
           
           // 恢复当前位置
-          if (parsed.userData.visitedLocations.length > 0) {
+          if (parsed.currentLocation) {
+            currentLocation.value = parsed.currentLocation
+          } else if (parsed.userData.visitedLocations.length > 0) {
             currentLocation.value = parsed.userData.visitedLocations[parsed.userData.visitedLocations.length - 1]
           } else {
             currentLocation.value = {
@@ -262,8 +354,12 @@ export const useUserStore = defineStore('user', () => {
       userData.value = parsed.userData
       userData.value.visitedCountries = new Set(parsed.userData.visitedCountries || [])
       
+      if (parsed.travelStatus) {
+        travelStatus.value = parsed.travelStatus
+      }
+      
       // 如果用户已选择省份但不在旅行中，自动开始新旅行
-      if (selectedProvince.value && !isTraveling.value) {
+      if (selectedProvince.value && !travelStatus.value.isTraveling) {
         startNewTravel()
       }
     } catch (error) {
@@ -282,8 +378,20 @@ export const useUserStore = defineStore('user', () => {
     }
     currentLocation.value = null
     destination.value = null
-    isTraveling.value = false
-    travelProgress.value = 0
+    travelStatus.value = {
+      isTraveling: false,
+      progress: 0,
+      distance: 0,
+      time: 0,
+      speed: 0,
+      transport: 'driving'
+    }
+    
+    // 停止模拟器
+    if (travelSimulator.value) {
+      travelSimulator.value.stop()
+      travelSimulator.value = null
+    }
     
     localStorage.removeItem('gotravel_user')
   }
@@ -295,12 +403,11 @@ export const useUserStore = defineStore('user', () => {
     // 状态
     selectedProvince,
     userData,
-    isTraveling,
+    travelStatus,
     currentLocation,
     destination,
-    travelProgress,
-    travelDistance,
-    travelTime,
+    routePoints,
+    currentRoutePoint,
     
     // 计算属性
     visitedCount,
@@ -314,6 +421,7 @@ export const useUserStore = defineStore('user', () => {
     skipToDestination,
     getRecentTravels,
     getTravelStats,
+    getCurrentTravelInfo,
     resetUserData,
     saveToLocalStorage,
     loadFromLocalStorage
