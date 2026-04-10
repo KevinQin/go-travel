@@ -23,6 +23,10 @@ export interface Location {
   image?: string
 }
 
+// 坐骑/交通工具类型
+export type MountType = 'animal' | 'vehicle' | 'other'
+export type TransportMode = 'walking' | 'riding' | 'flying' | 'driving'
+
 // 旅行记录
 export interface TravelRecord {
   id: number

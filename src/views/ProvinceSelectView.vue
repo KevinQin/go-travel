@@ -91,7 +91,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { provinces, getAllMountTypes, getMountConfig } from '@/data/provinces'
 import { ElMessage } from 'element-plus'
-import type { Province, TransportMode } from '@/types'
+import type { Province, MountType } from '@/types'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -116,27 +116,40 @@ const filteredProvinces = computed(() => {
 
   // 交通方式过滤
   if (selectedTransport.value) {
-    result = result.filter(p => p.transport === selectedTransport.value)
+    result = result.filter(p => {
+      const config = getMountConfig(p.mount)
+      return config.type === selectedTransport.value
+    })
   }
 
   return result
 })
 
 const transportModes = computed(() => {
-  const modes = getAllMountTypes()
-  return modes.map(mode => {
-    const config = getMountConfig(mode)
+  const mounts = getAllMountTypes()
+  const uniqueTypes = new Set<MountType>()
+  
+  mounts.forEach(mount => {
+    const config = getMountConfig(mount)
+    uniqueTypes.add(config.type)
+  })
+  
+  return Array.from(uniqueTypes).map(type => {
+    // 为每种类型找到代表性的坐骑
+    const representativeMount = mounts.find(mount => getMountConfig(mount).type === type) || mounts[0]
+    const config = getMountConfig(representativeMount)
+    
     return {
-      value: mode,
-      label: config.name,
+      value: type,
+      label: type === 'animal' ? '动物坐骑' : type === 'vehicle' ? '交通工具' : '其他',
       icon: config.icon
     }
   })
 })
 
 // 方法
-const getTransportName = (mode: MountType) => {
-  return getMountConfig(mode).name
+const getTransportName = (mount: string) => {
+  return getMountConfig(mount).name
 }
 
 const selectProvince = async (province: Province) => {

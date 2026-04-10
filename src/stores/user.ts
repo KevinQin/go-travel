@@ -4,6 +4,20 @@ import type { Province, Location, UserData, TravelRecord, MountType } from '@/ty
 import { getProvinceById } from '@/data/provinces'
 import { getRandomLocation } from '@/data/locations'
 
+// 根据坐骑名称获取坐骑类型
+function getMountType(mount: string): MountType {
+  const animalMounts = ['熊猫', '醒狮', '骏马', '骆驼', '大象']
+  const vehicleMounts = ['高铁', '磁悬浮', '数字高铁']
+  
+  if (animalMounts.includes(mount)) {
+    return 'animal'
+  } else if (vehicleMounts.includes(mount)) {
+    return 'vehicle'
+  } else {
+    return 'other'
+  }
+}
+
 // 计算真实距离（使用高德地图API）
 async function calculateRealDistance(from: [number, number], to: [number, number]): Promise<number> {
   // 这里应该调用高德地图的路径规划API
@@ -120,7 +134,7 @@ export const useUserStore = defineStore('user', () => {
       distance,
       startTime: travelStartTime.value,
       estimatedTime: time,
-      transport: selectedProvince.value.mount,
+      transport: getMountType(selectedProvince.value.mount),
       speed: selectedProvince.value.speed
     }
 
