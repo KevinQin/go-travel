@@ -23,6 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# Vue build output
+dist/
+
 # Environment variables
 .env
 .env.local
@@ -31,9 +34,6 @@ dist-ssr
 # TypeScript cache
 *.tsbuildinfo
 
-# Vue build output
-dist/
-
 # Local development files
 .local/
 .cache/
@@ -41,3 +41,21 @@ dist/
 # Temporary files
 tmp/
 temp/
+
+# Exclude other projects
+Star-Office-UI/
+everything-claude-code/
+sdui-research/
+skills/
+space-app/
+superpowers-developing-for-claude-code/
+images/
+notes/
+prompts/
+research/
+scripts/
+three-js/
+
+# Project specific files
+PRODUCT_DESIGN.md
+PROJECT_SUMMARY.md
