@@ -226,6 +226,7 @@ export const useUserStore = defineStore('user', () => {
     travelSimulator.value.start(
       // 进度回调
       (progress: number, currentPosition: [number, number], currentRoad?: string) => {
+        console.log('🚀 进度更新:', progress, '位置:', currentPosition, '道路:', currentRoad)
         travelStatus.value.progress = progress * 100 // 转换为百分比
         // 更新模拟中的当前位置
         simulatedPosition.value = currentPosition
@@ -237,18 +238,20 @@ export const useUserStore = defineStore('user', () => {
       },
       // 讲解点回调
       (point: { coordinates: [number, number], description: string }) => {
+        console.log('📍 到达讲解点:', point.description)
         // 显示讲解点信息
         showRoutePointInfo(point.description)
       },
       // 路段切换回调
       (segment: { index: number, total: number, road?: string }) => {
-        console.log(`切换到路段 ${segment.index + 1}/${segment.total}`)
+        console.log(`🔄 切换到路段 ${segment.index + 1}/${segment.total}`)
         if (segment.road) {
           console.log('当前道路:', segment.road)
         }
       },
       // 完成回调
       () => {
+        console.log('✅ 旅行完成')
         completeTravel()
       }
     )

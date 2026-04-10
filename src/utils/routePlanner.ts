@@ -212,9 +212,8 @@ function createMockRoute(origin: [number, number], destination: [number, number]
  * @returns 旅行时间（小时）
  */
 export function calculateTravelTime(distance: number, speed: number): number {
-  // 距离转换为千米，速度转换为米/秒
-  const distanceKm = distance / 1000
-  return distanceKm / speed
+  // distance: 距离（千米），speed: 速度（千米/小时）
+  return distance / speed
 }
 
 /**

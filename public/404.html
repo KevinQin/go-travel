@@ -6,16 +6,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GoTravel - 页面重定向</title>
     <script>
-      // GitHub Pages SPA 路由回退
-      const segmentCount = 0;
-      const l = window.location;
-      l.replace(
-        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-        l.pathname.split('/').slice(0, 1 + segmentCount).join('/') + '/?p=/' +
-        l.pathname.slice(1).split('/').slice(segmentCount).join('/').replace(/&/g, '~and~') +
-        (l.search ? '&q=' + l.search.slice(1).replace(/&/g, '~and~') : '') +
-        l.hash
-      );
+      // GitHub Pages SPA 路由回退 - 支持 /go-travel/ 基础路径
+      (function() {
+        const basePath = '/go-travel/';
+        const currentPath = window.location.pathname;
+        
+        // 如果当前路径不是以基础路径开头，重定向到基础路径
+        if (!currentPath.startsWith(basePath)) {
+          const newPath = basePath + currentPath.replace(/^\//, '');
+          window.location.replace(newPath + window.location.search + window.location.hash);
+          return;
+        }
+        
+        // 处理 SPA 路由
+        const segmentCount = basePath.split('/').filter(Boolean).length;
+        const l = window.location;
+        
+        // 移除基础路径部分
+        const pathWithoutBase = l.pathname.replace(new RegExp('^' + basePath), '/');
+        
+        l.replace(
+          l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+          basePath + '?p=' +
+          encodeURIComponent(pathWithoutBase) +
+          (l.search ? '&q=' + encodeURIComponent(l.search.slice(1)) : '') +
+          l.hash
+        );
+      })();
     </script>
   </head>
   <body>
