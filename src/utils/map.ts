@@ -55,6 +55,13 @@ export function createMap(
       scrollWheel: true,
       touchZoom: true,
       mapStyle: 'amap://styles/light', // 浅色主题
+      // 性能优化配置
+      optimizePanAnimation: true,
+      animateEnable: true,
+      renderOnMoving: true,
+      showIndoorMap: false,
+      // 尝试减少Canvas读取操作
+      features: ['bg', 'point', 'road', 'building'],
     })
     resolve(map)
   })

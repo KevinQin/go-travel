@@ -127,7 +127,7 @@
               <p class="mount-name">{{ province.icon }}</p>
               <p class="province-desc">{{ province.description }}</p>
               <el-button 
-                type="text" 
+                type="link" 
                 :style="{ color: province.color }"
                 @click.stop="selectProvince(province)"
               >
