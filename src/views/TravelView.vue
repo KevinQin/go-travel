@@ -148,6 +148,15 @@
             </div>
           </div>
           
+          <!-- 当前道路 -->
+          <div v-if="currentRoad" class="road-info">
+            <h4>当前道路</h4>
+            <p>{{ currentRoad }}</p>
+            <div v-if="currentSegment" class="segment-info">
+              <small>路段 {{ currentSegment.index + 1 }}/{{ currentSegment.total }}</small>
+            </div>
+          </div>
+          
           <!-- 沿途讲解点 -->
           <div v-if="userStore.routePoints.length > 0" class="route-points">
             <h4>沿途讲解点</h4>
@@ -340,13 +349,24 @@ const currentRoutePointDescription = ref('')
 // 地图相关
 const amapApiKey = ref(import.meta.env.VITE_AMAP_API_KEY || 'ba512535f4f46cbcec76a1398f9ec400')
 const mapComponent = ref<InstanceType<typeof AMap> | null>(null)
-const mapCenter = ref<[number, number]>([116.397428, 39.90923]) // 北京
+const mapCenter = computed<[number, number]>(() => {
+  // 如果有选择的省份，使用省份坐标
+  if (userStore.selectedProvince) {
+    return userStore.selectedProvince.coordinates
+  }
+  // 否则使用默认位置（北京）
+  return [116.397428, 39.90923]
+})
 const mapZoom = ref(15)
 const currentTravelPath = ref<{
   from: [number, number]
   to: [number, number]
   color?: string
 }>()
+
+// 道路信息
+const currentRoad = ref('')
+const currentSegment = ref<{ index: number, total: number } | null>(null)
 
 // 计算属性
 const allCountries = computed(() => getAllCountries())
@@ -591,7 +611,6 @@ const toggleTravelMode = () => {
 // 监听当前位置变化，更新地图中心
 watch(currentPosition, (newPosition) => {
   if (newPosition && mapComponent.value) {
-    mapCenter.value = newPosition
     // 调用地图的 flyTo 方法平滑移动
     mapComponent.value.flyTo(newPosition, 15)
   }

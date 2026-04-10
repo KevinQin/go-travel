@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import type { Province, Location, UserData, TravelRecord, TravelStatus } from '@/types'
 import { getProvinceById } from '@/data/provinces'
 import { getRandomLocation } from '@/data/locations'
-import { TravelSimulator, calculateTravelTime } from '@/utils/travelSimulator'
+import { EnhancedTravelSimulator } from '@/utils/enhancedTravelSimulator'
 import { calculateDistance } from '@/utils/map'
 
 // 根据坐骑名称获取坐骑类型
@@ -37,6 +37,11 @@ function getTransportMode(mount: string): 'walking' | 'riding' | 'flying' | 'dri
   return 'driving' // 默认
 }
 
+// 计算旅行时间（小时）
+function calculateTravelTime(distance: number, speed: number): number {
+  return distance / speed
+}
+
 export const useUserStore = defineStore('user', () => {
   // 用户选择的省份
   const selectedProvince = ref<Province | null>(null)
@@ -65,7 +70,10 @@ export const useUserStore = defineStore('user', () => {
   const travelStartTime = ref<number | null>(null)
   
   // 旅行模拟器实例
-  const travelSimulator = ref<TravelSimulator | null>(null)
+  const travelSimulator = ref<EnhancedTravelSimulator | null>(null)
+  
+  // 模拟中的当前位置
+  const simulatedPosition = ref<[number, number] | null>(null)
   
   // 沿途讲解点
   const routePoints = ref<Array<{
@@ -77,9 +85,6 @@ export const useUserStore = defineStore('user', () => {
   
   // 当前讲解点
   const currentRoutePoint = ref<number>(0)
-
-  // 模拟中的当前位置
-  const simulatedPosition = ref<[number, number] | null>(null)
 
   // 计算属性
   const visitedCount = computed(() => userData.value.visitedLocations.length)
@@ -207,8 +212,11 @@ export const useUserStore = defineStore('user', () => {
       travelSimulator.value.stop()
     }
 
-    // 创建新的模拟器
-    travelSimulator.value = new TravelSimulator(from, to, distance, speed, mountType)
+    // 获取API Key
+    const apiKey = import.meta.env.VITE_AMAP_API_KEY || 'ba512535f4f46cbcec76a1398f9ec400'
+    
+    // 创建新的增强版模拟器
+    travelSimulator.value = new EnhancedTravelSimulator(from, to, distance, speed, mountType, apiKey)
     
     // 重置讲解点
     routePoints.value = []
@@ -217,15 +225,27 @@ export const useUserStore = defineStore('user', () => {
     // 开始模拟
     travelSimulator.value.start(
       // 进度回调
-      (progress, currentPosition) => {
-        travelStatus.value.progress = progress
+      (progress: number, currentPosition: [number, number], currentRoad?: string) => {
+        travelStatus.value.progress = progress * 100 // 转换为百分比
         // 更新模拟中的当前位置
         simulatedPosition.value = currentPosition
+        
+        // 这里可以更新当前道路信息
+        if (currentRoad) {
+          console.log('当前道路:', currentRoad)
+        }
       },
       // 讲解点回调
-      (point) => {
+      (point: { coordinates: [number, number], description: string }) => {
         // 显示讲解点信息
         showRoutePointInfo(point.description)
+      },
+      // 路段切换回调
+      (segment: { index: number, total: number, road?: string }) => {
+        console.log(`切换到路段 ${segment.index + 1}/${segment.total}`)
+        if (segment.road) {
+          console.log('当前道路:', segment.road)
+        }
       },
       // 完成回调
       () => {
