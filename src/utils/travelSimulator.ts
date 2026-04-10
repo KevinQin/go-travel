@@ -251,13 +251,6 @@ export class TravelSimulator {
   }
   
   /**
-   * 获取当前进度
-   */
-  getProgress(): number {
-    return this.currentProgress
-  }
-  
-  /**
    * 获取剩余时间（小时）
    */
   getRemainingTime(): number {
@@ -266,6 +259,40 @@ export class TravelSimulator {
     const elapsedHours = (Date.now() - this.startTime) / (1000 * 60 * 60)
     const totalHours = this.totalTime
     return Math.max(0, totalHours - elapsedHours)
+  }
+
+  /**
+   * 获取当前位置
+   */
+  getCurrentPosition(): [number, number] {
+    if (this.currentProgress >= 100) {
+      return this.to
+    }
+    
+    const currentIndex = Math.floor((this.currentProgress / 100) * (this.routePoints.length - 1))
+    return this.routePoints[Math.min(currentIndex, this.routePoints.length - 1)].coordinates
+  }
+
+  /**
+   * 获取当前进度
+   */
+  getProgress(): number {
+    return this.currentProgress
+  }
+  
+  /**
+   * 获取已走过的路径点
+   */
+  getTraveledPath(): [number, number][] {
+    const traveledPoints: [number, number][] = []
+    const progress = this.currentProgress / 100
+    const numPoints = Math.floor(progress * (this.routePoints.length - 1))
+    
+    for (let i = 0; i <= numPoints; i++) {
+      traveledPoints.push(this.routePoints[i].coordinates)
+    }
+    
+    return traveledPoints
   }
   
   /**

@@ -93,6 +93,18 @@ export const useUserStore = defineStore('user', () => {
     return getTransportMode(selectedProvince.value.mount)
   })
 
+  // 获取已走过的路径
+  const traveledPath = computed(() => {
+    if (!travelSimulator.value) return []
+    return travelSimulator.value.getTraveledPath()
+  })
+
+  // 获取模拟中的当前位置（用于地图显示）
+  const simulatedPosition = computed(() => {
+    if (!travelSimulator.value) return undefined
+    return travelSimulator.value.getCurrentPosition()
+  })
+
   // 选择省份并自动开始漫游
   async function selectProvince(provinceId: number) {
     const province = getProvinceById(provinceId)
@@ -414,6 +426,8 @@ export const useUserStore = defineStore('user', () => {
     visitedCountries,
     currentSpeed,
     currentTransport,
+    traveledPath,
+    simulatedPosition,
     
     // 方法
     selectProvince,

@@ -97,6 +97,19 @@ interface Props {
     to: [number, number]
     color?: string
   }
+  
+  // 当前位置
+  currentPosition?: [number, number]
+  
+  // 已走过的路径
+  traveledPath?: [number, number][]
+  
+  // 坐骑信息
+  mountInfo?: {
+    type: string
+    icon: string
+    color: string
+  }
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -107,13 +120,17 @@ const props = withDefaults(defineProps<Props>(), {
   showTypeSwitch: true,
   interactive: true,
   provinces: () => [],
-  travelPath: undefined
+  travelPath: undefined,
+  currentPosition: undefined,
+  traveledPath: () => [],
+  mountInfo: undefined
 })
 
 const emit = defineEmits<{
   'map-ready': [map: any]
   'map-click': [event: any]
   'marker-click': [marker: any]
+  'position-update': [position: [number, number]]
 }>()
 
 // 响应式数据
@@ -122,6 +139,13 @@ const mapInstance = ref<any>(null)
 const loading = ref(false)
 const error = ref(false)
 const mapType = ref<'normal' | 'satellite'>('normal')
+
+// 地图元素引用
+const currentPositionMarker = ref<any>(null)
+const travelPathPolyline = ref<any>(null)
+const traveledPathPolyline = ref<any>(null)
+const provinceMarkers = ref<any[]>([])
+const destinationMarker = ref<any>(null)
 
 // 初始化地图
 const initMap = async () => {
@@ -156,58 +180,21 @@ const initMap = async () => {
     }
     
     // 添加省份标记
-    if (props.provinces.length > 0) {
-      // 这里可以调用 addProvinceMarkers
-      // 暂时用简单标记代替
-      props.provinces.forEach(province => {
-        const marker = new window.AMap.Marker({
-          position: new window.AMap.LngLat(province.coordinates[0], province.coordinates[1]),
-          title: province.name
-        })
-        
-        const content = `
-          <div style="
-            background-color: ${province.color};
-            color: white;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: bold;
-            border: 2px solid white;
-          ">
-            ${province.name.charAt(0)}
-          </div>
-        `
-        
-        marker.setContent(content)
-        marker.setMap(map)
-        
-        marker.on('click', () => {
-          emit('marker-click', { province, marker })
-        })
-      })
-    }
+    addProvinceMarkers(map)
     
     // 添加旅行路径
     if (props.travelPath) {
-      const path = [
-        new window.AMap.LngLat(props.travelPath.from[0], props.travelPath.from[1]),
-        new window.AMap.LngLat(props.travelPath.to[0], props.travelPath.to[1])
-      ]
-      
-      const polyline = new window.AMap.Polyline({
-        path,
-        strokeColor: props.travelPath.color || '#4CAF50',
-        strokeWeight: 3,
-        strokeOpacity: 0.6,
-        strokeStyle: 'solid'
-      })
-      
-      polyline.setMap(map)
+      addTravelPath(map, props.travelPath)
+    }
+    
+    // 添加当前位置标记
+    if (props.currentPosition) {
+      addCurrentPositionMarker(map, props.currentPosition)
+    }
+    
+    // 添加已走过的路径
+    if (props.traveledPath && props.traveledPath.length > 0) {
+      addTraveledPath(map, props.traveledPath)
     }
     
     // 地图点击事件
@@ -225,6 +212,219 @@ const initMap = async () => {
     ElMessage.error('地图加载失败，请检查API Key')
   } finally {
     loading.value = false
+  }
+}
+
+// 添加省份标记
+const addProvinceMarkers = (map: any) => {
+  // 清理之前的标记
+  provinceMarkers.value.forEach(marker => marker.setMap(null))
+  provinceMarkers.value = []
+  
+  if (props.provinces.length > 0) {
+    props.provinces.forEach(province => {
+      const marker = new window.AMap.Marker({
+        position: new window.AMap.LngLat(province.coordinates[0], province.coordinates[1]),
+        title: province.name,
+        offset: new window.AMap.Pixel(-13, -30)
+      })
+      
+      const content = `
+        <div style="
+          background-color: ${province.color};
+          color: white;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: bold;
+          border: 2px solid white;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        ">
+          ${province.name.charAt(0)}
+        </div>
+      `
+      
+      marker.setContent(content)
+      marker.setMap(map)
+      
+      marker.on('click', () => {
+        emit('marker-click', { province, marker })
+      })
+      
+      provinceMarkers.value.push(marker)
+    })
+  }
+}
+
+// 添加旅行路径
+const addTravelPath = (map: any, travelPath: { from: [number, number], to: [number, number], color?: string }) => {
+  // 清理之前的路径
+  if (travelPathPolyline.value) {
+    travelPathPolyline.value.setMap(null)
+  }
+  
+  const path = [
+    new window.AMap.LngLat(travelPath.from[0], travelPath.from[1]),
+    new window.AMap.LngLat(travelPath.to[0], travelPath.to[1])
+  ]
+  
+  travelPathPolyline.value = new window.AMap.Polyline({
+    path,
+    strokeColor: travelPath.color || '#4CAF50',
+    strokeWeight: 3,
+    strokeOpacity: 0.6,
+    strokeStyle: 'solid',
+    lineJoin: 'round',
+    lineCap: 'round'
+  })
+  
+  travelPathPolyline.value.setMap(map)
+}
+
+// 添加当前位置标记
+const addCurrentPositionMarker = (map: any, position: [number, number]) => {
+  // 清理之前的标记
+  if (currentPositionMarker.value) {
+    currentPositionMarker.value.setMap(null)
+  }
+  
+  const mountColor = props.mountInfo?.color || '#4CAF50'
+  const mountIcon = props.mountInfo?.icon || '🐾'
+  
+  currentPositionMarker.value = new window.AMap.Marker({
+    position: new window.AMap.LngLat(position[0], position[1]),
+    title: '当前位置',
+    offset: new window.AMap.Pixel(-20, -40),
+    zIndex: 100
+  })
+  
+  const content = `
+    <div style="
+      background-color: ${mountColor};
+      color: white;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: bold;
+      border: 3px solid white;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+      animation: pulse 2s infinite;
+    ">
+      ${mountIcon}
+    </div>
+    <style>
+      @keyframes pulse {
+        0% { transform: scale(1); box-shadow: 0 3px 6px rgba(0,0,0,0.3); }
+        50% { transform: scale(1.1); box-shadow: 0 5px 10px rgba(0,0,0,0.4); }
+        100% { transform: scale(1); box-shadow: 0 3px 6px rgba(0,0,0,0.3); }
+      }
+    </style>
+  `
+  
+  currentPositionMarker.value.setContent(content)
+  currentPositionMarker.value.setMap(map)
+}
+
+// 添加已走过的路径
+const addTraveledPath = (map: any, pathPoints: [number, number][]) => {
+  // 清理之前的路径
+  if (traveledPathPolyline.value) {
+    traveledPathPolyline.value.setMap(null)
+  }
+  
+  if (pathPoints.length < 2) return
+  
+  const path = pathPoints.map(point => new window.AMap.LngLat(point[0], point[1]))
+  
+  traveledPathPolyline.value = new window.AMap.Polyline({
+    path,
+    strokeColor: '#2196F3', // 蓝色，类似跑步应用的轨迹
+    strokeWeight: 4,
+    strokeOpacity: 0.8,
+    strokeStyle: 'solid',
+    lineJoin: 'round',
+    lineCap: 'round',
+    zIndex: 50
+  })
+  
+  traveledPathPolyline.value.setMap(map)
+}
+
+// 更新当前位置
+const updateCurrentPosition = (position: [number, number]) => {
+  if (!mapInstance.value || !currentPositionMarker.value) return
+  
+  // 更新标记位置
+  currentPositionMarker.value.setPosition(new window.AMap.LngLat(position[0], position[1]))
+  
+  // 触发位置更新事件
+  emit('position-update', position)
+  
+  // 平滑移动到新位置
+  mapInstance.value.setCenter(position, true, 300)
+}
+
+// 添加路径点（用于记录走过的路径）
+const addPathPoint = (_point: [number, number]) => {
+  if (!mapInstance.value) return
+  
+  // 这里可以扩展为动态添加路径点
+  // 目前由 traveledPath prop 控制
+}
+
+// 添加目的地标记
+const addDestinationMarker = (position: [number, number], name: string) => {
+  // 清理之前的目的地标记
+  if (destinationMarker.value) {
+    destinationMarker.value.setMap(null)
+  }
+  
+  if (!mapInstance.value) return
+  
+  destinationMarker.value = new window.AMap.Marker({
+    position: new window.AMap.LngLat(position[0], position[1]),
+    title: name,
+    offset: new window.AMap.Pixel(-13, -30)
+  })
+  
+  const content = `
+    <div style="
+      background-color: #FF6B6B;
+      color: white;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: bold;
+      border: 3px solid white;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+    ">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="white">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+      </svg>
+    </div>
+  `
+  
+  destinationMarker.value.setContent(content)
+  destinationMarker.value.setMap(mapInstance.value)
+}
+
+// 清除目的地标记
+const clearDestinationMarker = () => {
+  if (destinationMarker.value) {
+    destinationMarker.value.setMap(null)
+    destinationMarker.value = null
   }
 }
 
@@ -266,6 +466,10 @@ defineExpose({
       mapInstance.value.setZoomAndCenter(zoom || 8, to, true, 1)
     }
   },
+  updateCurrentPosition,
+  addPathPoint,
+  addDestinationMarker,
+  clearDestinationMarker,
   addMarker: (position: [number, number], options?: any) => {
     if (!mapInstance.value) return null
     
@@ -292,6 +496,34 @@ watch(() => props.center, (newCenter) => {
 watch(() => props.zoom, (newZoom) => {
   if (mapInstance.value && newZoom) {
     mapInstance.value.setZoom(newZoom)
+  }
+})
+
+watch(() => props.currentPosition, (newPosition) => {
+  if (newPosition && mapInstance.value) {
+    if (currentPositionMarker.value) {
+      updateCurrentPosition(newPosition)
+    } else {
+      addCurrentPositionMarker(mapInstance.value, newPosition)
+    }
+  }
+})
+
+watch(() => props.traveledPath, (newPath) => {
+  if (newPath && newPath.length > 0 && mapInstance.value) {
+    addTraveledPath(mapInstance.value, newPath)
+  }
+})
+
+watch(() => props.travelPath, (newPath) => {
+  if (newPath && mapInstance.value) {
+    addTravelPath(mapInstance.value, newPath)
+  }
+})
+
+watch(() => props.provinces, () => {
+  if (mapInstance.value) {
+    addProvinceMarkers(mapInstance.value)
   }
 })
 

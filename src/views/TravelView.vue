@@ -89,16 +89,21 @@
       <!-- 高德地图组件 -->
       <AMap
         v-if="isMapReady"
+        ref="mapComponent"
         :api-key="amapApiKey"
         :center="mapCenter"
         :zoom="mapZoom"
         :provinces="mapProvinces"
         :travel-path="currentTravelPath"
+        :current-position="currentPosition"
+        :traveled-path="traveledPath"
+        :mount-info="mountInfo"
         :show-controls="true"
         :show-type-switch="true"
         @map-ready="handleMapReady"
         @map-click="handleMapClick"
         @marker-click="handleMarkerClick"
+        @position-update="handlePositionUpdate"
       />
       
       <!-- 地图加载状态 -->
@@ -329,7 +334,7 @@ const currentRoutePointDescription = ref('')
 
 // 地图相关
 const amapApiKey = ref(import.meta.env.VITE_AMAP_API_KEY || 'ba512535f4f46cbcec76a1398f9ec400')
-const mapInstance = ref<any>(null)
+const mapComponent = ref<InstanceType<typeof AMap> | null>(null)
 const mapCenter = ref<[number, number]>([116.397428, 39.90923]) // 北京
 const mapZoom = ref(5)
 const currentTravelPath = ref<{
@@ -353,6 +358,34 @@ const mapProvinces = computed(() => {
   }))
 })
 
+const currentPosition = computed(() => {
+  // 优先使用模拟中的位置
+  if (userStore.simulatedPosition) {
+    return userStore.simulatedPosition
+  }
+  
+  // 如果没有模拟位置，使用当前位置
+  if (userStore.currentLocation) {
+    return userStore.currentLocation.coordinates
+  }
+  
+  return undefined
+})
+
+const traveledPath = computed(() => {
+  return userStore.traveledPath
+})
+
+const mountInfo = computed(() => {
+  if (!userStore.selectedProvince) return undefined
+  
+  return {
+    type: userStore.selectedProvince.mount,
+    icon: userStore.selectedProvince.icon,
+    color: userStore.selectedProvince.color
+  }
+})
+
 // 方法
 const initMap = () => {
   amapApiKey.value = import.meta.env.VITE_AMAP_API_KEY || 'ba512535f4f46cbcec76a1398f9ec400'
@@ -366,10 +399,8 @@ const initMap = () => {
   isMapReady.value = true
 }
 
-const handleMapReady = (map: any) => {
-  mapInstance.value = map
-  ElMessage.success('地图加载完成')
-  
+const handleMapReady = (_map: any) => {
+  console.log('地图加载完成')
   // 如果正在旅行，更新地图显示
   if (userStore.travelStatus.isTraveling && userStore.currentLocation && userStore.destination) {
     updateMapPath()
@@ -382,6 +413,11 @@ const handleMapClick = (event: any) => {
 
 const handleMarkerClick = (data: any) => {
   console.log('标记点击:', data)
+}
+
+const handlePositionUpdate = (position: [number, number]) => {
+  console.log('位置更新:', position)
+  // 这里可以添加额外的位置更新逻辑
 }
 
 const startNewTravel = async () => {
@@ -453,20 +489,12 @@ const updateMapPath = () => {
     color: userStore.selectedProvince?.color
   }
   
-  // 更新地图中心点
-  if (mapInstance.value) {
-    const from = userStore.currentLocation.coordinates
-    const to = userStore.destination.coordinates
-    const center = [
-      (from[0] + to[0]) / 2,
-      (from[1] + to[1]) / 2
-    ]
-    mapInstance.value.setCenter(center)
-    
-    // 调整缩放级别
-    const distance = calculateDistance(from, to)
-    const zoom = Math.max(3, Math.min(8, 10 - Math.log2(distance / 1000)))
-    mapInstance.value.setZoom(zoom)
+  // 添加目的地标记
+  if (mapComponent.value) {
+    mapComponent.value.addDestinationMarker(
+      userStore.destination.coordinates,
+      userStore.destination.name
+    )
   }
 }
 
@@ -550,6 +578,11 @@ watch(() => userStore.travelStatus.isTraveling, (isTraveling) => {
   if (isTraveling) {
     // 更新地图路径
     updateMapPath()
+  } else {
+    // 清理目的地标记
+    if (mapComponent.value) {
+      mapComponent.value.clearDestinationMarker()
+    }
   }
 })
 
