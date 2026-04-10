@@ -207,7 +207,7 @@ const showLocationDialog = ref(false)
 const selectedLocation = ref<Location | null>(null)
 
 // 地图相关
-const amapApiKey = ref(import.meta.env.VITE_AMAP_API_KEY || '') // 从环境变量获取
+const amapApiKey = ref(import.meta.env.VITE_AMAP_API_KEY || 'ba512535f4f46cbcec76a1398f9ec400') // 从环境变量获取，或使用默认测试key
 const mapInstance = ref<any>(null)
 const mapCenter = ref<[number, number]>([116.397428, 39.90923]) // 北京
 const mapZoom = ref(5)
@@ -239,8 +239,8 @@ const mapProvinces = computed(() => {
 
 // 方法
 const initMap = () => {
-  // 这里应该从环境变量获取API Key
-  // amapApiKey.value = import.meta.env.VITE_AMAP_API_KEY
+  // 从环境变量获取API Key，或使用默认值
+  amapApiKey.value = import.meta.env.VITE_AMAP_API_KEY || 'ba512535f4f46cbcec76a1398f9ec400'
   
   if (!amapApiKey.value) {
     ElMessage.warning('高德地图API Key未配置，使用模拟模式')
