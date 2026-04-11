@@ -184,7 +184,7 @@ const router = useRouter()
 const popularProvinces = computed(() => provinces.slice(0, 6))
 
 const selectProvince = async (province: any) => {
-  const success = await userStore.selectProvince(province)
+  const success = await userStore.selectProvince(province.id)
   if (success) {
     ElMessage.success(`已选择 ${province.name}，坐骑：${province.icon}`)
     // 使用Vue Router进行导航，自动处理基础路径
