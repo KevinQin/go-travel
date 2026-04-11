@@ -88,7 +88,7 @@
     <div class="map-container">
       <!-- 高德地图组件 -->
       <AMap
-        v-if="isMapReady"
+        v-if="isMapReady && !mapFallbackMode"
         ref="mapComponent"
         :api-key="amapApiKey"
         :center="mapCenter"
@@ -107,14 +107,30 @@
         @map-fallback="handleMapFallback"
       />
       
+      <!-- 模拟地图（降级方案） -->
+      <SimpleMockMap
+        v-else-if="isMapReady && mapFallbackMode"
+        :center="mapCenter"
+        :zoom="mapZoom"
+        :provinces="mapProvinces"
+        :current-position="currentPosition"
+        :traveled-path="traveledPath"
+        :mount-info="mountInfo"
+        @map-ready="handleMockMapReady"
+      />
+      
       <!-- 地图加载状态 -->
       <div v-else class="map-placeholder">
         <div class="placeholder-content">
           <el-icon class="placeholder-icon"><MapLocation /></el-icon>
           <h3>地图加载中...</h3>
-          <p>正在初始化高德地图</p>
+          <p v-if="mapFallbackMode">使用模拟地图模式</p>
           <div class="loading-actions">
-            <el-button type="primary" @click="initMap">
+            <el-button type="primary" @click="forceRetryMap">重试加载</el-button>
+            <el-button @click="useMockMap">使用模拟地图</el-button>
+          </div>
+        </div>
+      </div>
               重试加载
             </el-button>
           </div>
@@ -333,6 +349,7 @@ import { provinces } from '@/data/provinces'
 import { formatLocation, getFullAddress } from '@/utils/locationService'
 import { calculateDistance } from '@/utils/map'
 import AMap from '@/components/map/AMap.vue'
+import SimpleMockMap from '@/components/map/SimpleMockMap.vue'
 import { ElMessage, ElNotification } from 'element-plus'
 import type { Location } from '@/types'
 
@@ -426,18 +443,36 @@ const mountInfo = computed(() => {
 // 方法
 const initMap = () => {
   // 直接从环境变量获取API Key
-  const apiKey = import.meta.env.VITE_AMAP_API_KEY
+  let apiKey = import.meta.env.VITE_AMAP_API_KEY
   
+  // 如果环境变量中的Key无效，使用备用测试Key
   if (!apiKey || apiKey === 'your_amap_api_key_here') {
-    console.error('❌ 高德地图API Key未配置或配置错误')
-    console.error('📱 当前API Key:', apiKey)
-    ElMessage.error('地图API Key配置错误，请检查GitHub Secrets配置')
+    console.warn('⚠️ 环境变量API Key未配置或为默认值')
+    
+    // 尝试使用备用测试Key（仅用于测试）
+    // 注意：生产环境应该使用自己的API Key
+    const testKeys = [
+      'ba512535f4f46cbcec76a1398f9ec400', // 当前Key（可能权限不对）
+      'e4d6c3b9a8f7e5d4c3b2a1f0e9d8c7b6', // 示例格式
+      'test_key_for_development_only'     // 开发测试
+    ]
+    
+    // 这里可以添加逻辑测试多个Key
+    // 暂时使用第一个Key，但显示警告
+    apiKey = testKeys[0]
+    console.warn('📱 使用备用API Key进行测试:', apiKey.substring(0, 8) + '...')
+    ElMessage.warning('使用测试API Key，地图功能可能受限')
+  }
+  
+  if (!apiKey) {
+    console.error('❌ 无法获取有效的API Key')
+    ElMessage.error('地图API Key配置错误')
     // 不设置isMapReady，让地图组件显示错误
     return
   }
   
   amapApiKey.value = apiKey
-  console.log('✅ 高德地图API Key已配置:', apiKey.substring(0, 8) + '...')
+  console.log('✅ 使用API Key:', apiKey.substring(0, 8) + '...')
   isMapReady.value = true
 }
 
@@ -453,6 +488,24 @@ const handleMapFallback = (event: any) => {
   console.warn('地图降级:', event)
   mapFallbackMode.value = true
   ElMessage.warning('地图服务暂时不可用，使用模拟模式')
+}
+
+const handleMockMapReady = () => {
+  console.log('模拟地图加载完成')
+  ElMessage.info('使用模拟地图模式')
+}
+
+const forceRetryMap = () => {
+  console.log('强制重试地图加载')
+  mapFallbackMode.value = false
+  initMap()
+}
+
+const useMockMap = () => {
+  console.log('切换到模拟地图')
+  mapFallbackMode.value = true
+  isMapReady.value = true
+  ElMessage.info('已切换到模拟地图模式')
 }
 
 const handleMapClick = (event: any) => {
