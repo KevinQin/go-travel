@@ -182,16 +182,33 @@ go-travel/
 
 ## 🚀 部署
 
-### Vercel 部署（推荐）
-```bash
-npm run build
-vercel --prod
-```
+### GitHub Pages 部署（推荐）
+项目已配置 GitHub Actions 自动部署到 GitHub Pages。
 
-### GitHub Pages
+#### 部署步骤：
+1. **配置 GitHub Secrets**：
+   - 在 GitHub 仓库设置中，进入 Secrets and variables → Actions
+   - 添加名为 `AMAP_API_KEY` 的 secret，值为您的高德地图 API Key
+
+2. **启用 GitHub Pages**：
+   - 进入仓库 Settings → Pages
+   - 选择 Source: **GitHub Actions**
+   - 保存设置
+
+3. **自动部署**：
+   - 每次推送到 `master` 分支都会自动构建并部署
+   - 部署地址：`https://[你的用户名].github.io/go-travel/`
+
+#### 手动部署：
 ```bash
 npm run build
 # 将 dist 目录推送到 gh-pages 分支
+```
+
+### Vercel 部署
+```bash
+npm run build
+vercel --prod
 ```
 
 ### Docker 部署
