@@ -182,36 +182,57 @@ go-travel/
 
 ## 🚀 部署
 
-### GitHub Pages 部署（推荐）
-项目已配置 GitHub Actions 自动部署到 GitHub Pages。
+### 已配置的 GitHub Pages 部署
+项目已完全配置 GitHub Actions 自动部署到 GitHub Pages，您只需完成最后两个配置步骤。
 
-#### 部署步骤：
+#### ✅ 已完成的配置：
+1. **GitHub Actions 工作流**：`.github/workflows/deploy.yml`
+2. **Vite 生产配置**：`vite.config.ts` 已设置基础路径
+3. **环境变量管理**：支持 GitHub Secrets
+4. **部署文档**：`DEPLOYMENT_GUIDE.md` 详细指南
+
+#### 🔧 需要您完成的配置：
 1. **配置 GitHub Secrets**：
-   - 在 GitHub 仓库设置中，进入 Secrets and variables → Actions
-   - 添加名为 `AMAP_API_KEY` 的 secret，值为您的高德地图 API Key
+   - 访问：`https://github.com/KevinQin/go-travel/settings/secrets/actions`
+   - 点击 **New repository secret**
+   - 输入：
+     - **Name**: `AMAP_API_KEY`
+     - **Value**: `ba512535f4f46cbcec76a1398f9ec400` (已提供的高德地图 API Key)
+   - 点击 **Add secret**
 
 2. **启用 GitHub Pages**：
-   - 进入仓库 Settings → Pages
-   - 选择 Source: **GitHub Actions**
-   - 保存设置
+   - 访问：`https://github.com/KevinQin/go-travel/settings/pages`
+   - 在 **Source** 部分，选择 **GitHub Actions**
+   - 点击 **Save**
 
-3. **自动部署**：
-   - 每次推送到 `master` 分支都会自动构建并部署
-   - 部署地址：`https://[你的用户名].github.io/go-travel/`
+#### 🚀 自动部署流程：
+- 每次推送到 `master` 分支都会自动触发部署
+- 首次部署需要 **5-10 分钟**
+- 部署状态可在 **Actions** 标签页查看
 
-#### 手动部署：
+#### 🌐 部署地址：
+- **GitHub Pages**: `https://kevinqin.github.io/go-travel/`
+- **本地开发**: `http://localhost:3000`
+
+#### 📊 部署状态检查：
 ```bash
-npm run build
-# 将 dist 目录推送到 gh-pages 分支
+# 检查部署状态
+curl -I https://kevinqin.github.io/go-travel/
+
+# 预期响应：
+# HTTP/2 200  # 部署成功
+# HTTP/2 404  # 等待首次部署
 ```
 
-### Vercel 部署
+### 其他部署方式
+
+#### Vercel 部署（备用）
 ```bash
 npm run build
 vercel --prod
 ```
 
-### Docker 部署
+#### Docker 部署
 ```dockerfile
 FROM node:18-alpine as builder
 WORKDIR /app
@@ -225,6 +246,42 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 ```
+
+#### 手动部署到 GitHub Pages
+```bash
+# 1. 安装 gh-pages
+npm install --save-dev gh-pages
+
+# 2. 在 package.json 中添加脚本
+"scripts": {
+  "deploy": "npm run build && gh-pages -d dist"
+}
+
+# 3. 部署
+npm run deploy
+```
+
+### 🛠️ 故障排除
+
+#### 部署失败
+1. 检查 GitHub Secrets 是否正确配置
+2. 查看 Actions 日志中的错误信息
+3. 确保 API Key 有足够的配额
+
+#### 地图不显示
+1. 检查 API Key 是否正确
+2. 查看浏览器控制台错误
+3. 确保网络可以访问高德地图 API
+
+#### 功能异常
+1. 清除浏览器缓存
+2. 检查控制台错误
+3. 验证网络连接
+
+### 📞 技术支持
+- **部署问题**: 查看 `DEPLOYMENT_GUIDE.md`
+- **代码问题**: 查看 GitHub Issues
+- **API 问题**: 检查高德地图 API Key
 
 ## 📈 性能优化
 
