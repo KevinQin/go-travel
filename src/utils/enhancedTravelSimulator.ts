@@ -2,6 +2,7 @@
 // 使用高德地图API进行真实的路径规划和街道级别行进
 
 import { planRoute, splitRouteIntoSegments, calculateTravelTime as calculateTravelTimeFromPlanner } from './routePlanner'
+import { handleAmapApiError } from './apiErrorHandler'
 
 /**
  * 增强版旅行模拟器类
@@ -91,11 +92,8 @@ export class EnhancedTravelSimulator {
     } catch (error) {
       console.error('❌ 路径规划失败，使用模拟模式:', error)
       
-      // 如果是国际路线权限问题，显示用户友好的提示
-      if (error instanceof Error && error.message.includes('INSUFFICIENT_ABROAD_PRIVILEGES')) {
-        console.warn('⚠️ 高德地图API缺少国际路线规划权限')
-        console.warn('📱 提示：国际路线将使用模拟模式，国内路线可正常规划')
-      }
+      // 使用统一的错误处理器
+      handleAmapApiError(error, '旅行模拟器')
       
       // 如果API失败，使用模拟模式
       this.startSimulationMode(onProgress, onPointReached, onSegmentChanged, onComplete)

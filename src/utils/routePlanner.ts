@@ -1,6 +1,8 @@
 // 高德地图路径规划服务
 // 使用高德地图API进行真实的路径规划
 
+import { handleAmapApiError } from './apiErrorHandler'
+
 /**
  * 路径规划选项
  */
@@ -97,11 +99,8 @@ export async function planRoute(
   } catch (error) {
     console.error('路径规划失败:', error)
     
-    // 如果是国际路线权限问题，提供更友好的错误信息
-    if (error instanceof Error && error.message.includes('INSUFFICIENT_ABROAD_PRIVILEGES')) {
-      console.warn('高德地图API缺少国际路线规划权限，使用模拟模式')
-      // 可以在这里添加用户提示
-    }
+    // 使用统一的错误处理器
+    handleAmapApiError(error, '路径规划')
     
     // 如果API调用失败，使用模拟数据
     return createMockRoute(origin, destination)
