@@ -197,7 +197,7 @@ go-travel/
    - 点击 **New repository secret**
    - 输入：
      - **Name**: `AMAP_API_KEY`
-     - **Value**: `ba512535f4f46cbcec76a1398f9ec400` (已提供的高德地图 API Key)
+     - **Value**: `你的高德地图 API Key` (请勿公开分享)
    - 点击 **Add secret**
 
 2. **启用 GitHub Pages**：

@@ -347,7 +347,7 @@ const showRoutePointDialog = ref(false)
 const currentRoutePointDescription = ref('')
 
 // 地图相关
-const amapApiKey = ref(import.meta.env.VITE_AMAP_API_KEY || 'ba512535f4f46cbcec76a1398f9ec400')
+const amapApiKey = ref(import.meta.env.VITE_AMAP_API_KEY || '')
 const mapComponent = ref<InstanceType<typeof AMap> | null>(null)
 const mapCenter = computed<[number, number]>(() => {
   // 如果有选择的省份，使用省份坐标
@@ -423,7 +423,7 @@ const mountInfo = computed(() => {
 
 // 方法
 const initMap = () => {
-  amapApiKey.value = import.meta.env.VITE_AMAP_API_KEY || 'ba512535f4f46cbcec76a1398f9ec400'
+  amapApiKey.value = import.meta.env.VITE_AMAP_API_KEY || ''
   
   if (!amapApiKey.value) {
     ElMessage.warning('高德地图API Key未配置，使用模拟模式')

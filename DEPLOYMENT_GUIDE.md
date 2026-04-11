@@ -15,7 +15,7 @@
 3. 点击 **New repository secret**
 4. 输入：
    - **Name**: `AMAP_API_KEY`
-   - **Value**: `ba512535f4f46cbcec76a1398f9ec400` (您的高德地图 API Key)
+   - **Value**: `你的高德地图 API Key` (请勿公开分享)
 5. 点击 **Add secret**
 
 ### 步骤 2：启用 GitHub Pages
@@ -54,7 +54,7 @@ npm run deploy
 1. 访问 [vercel.com](https://vercel.com)
 2. 导入 GitHub 仓库
 3. 配置环境变量：
-   - `VITE_AMAP_API_KEY`: `ba512535f4f46cbcec76a1398f9ec400`
+   - `VITE_AMAP_API_KEY`: `你的高德地图 API Key`
 4. 点击部署
 
 ## 📊 项目功能验证

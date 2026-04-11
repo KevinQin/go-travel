@@ -213,7 +213,7 @@ export const useUserStore = defineStore('user', () => {
     }
 
     // 获取API Key
-    const apiKey = import.meta.env.VITE_AMAP_API_KEY || 'ba512535f4f46cbcec76a1398f9ec400'
+    const apiKey = import.meta.env.VITE_AMAP_API_KEY || ''
     
     // 创建新的增强版模拟器
     travelSimulator.value = new EnhancedTravelSimulator(from, to, distance, speed, mountType, apiKey)
