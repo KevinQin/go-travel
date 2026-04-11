@@ -104,6 +104,7 @@
         @map-click="handleMapClick"
         @marker-click="handleMarkerClick"
         @position-update="handlePositionUpdate"
+        @map-fallback="handleMapFallback"
       />
       
       <!-- 地图加载状态 -->
@@ -363,6 +364,7 @@ const currentTravelPath = ref<{
   to: [number, number]
   color?: string
 }>()
+const mapFallbackMode = ref(false) // 地图降级模式
 
 // 道路信息
 const currentRoad = ref('')
@@ -423,14 +425,19 @@ const mountInfo = computed(() => {
 
 // 方法
 const initMap = () => {
-  amapApiKey.value = import.meta.env.VITE_AMAP_API_KEY || ''
+  // 直接从环境变量获取API Key
+  const apiKey = import.meta.env.VITE_AMAP_API_KEY
   
-  if (!amapApiKey.value) {
-    ElMessage.warning('高德地图API Key未配置，使用模拟模式')
-    isMapReady.value = true
+  if (!apiKey || apiKey === 'your_amap_api_key_here') {
+    console.error('❌ 高德地图API Key未配置或配置错误')
+    console.error('📱 当前API Key:', apiKey)
+    ElMessage.error('地图API Key配置错误，请检查GitHub Secrets配置')
+    // 不设置isMapReady，让地图组件显示错误
     return
   }
   
+  amapApiKey.value = apiKey
+  console.log('✅ 高德地图API Key已配置:', apiKey.substring(0, 8) + '...')
   isMapReady.value = true
 }
 
@@ -440,6 +447,12 @@ const handleMapReady = (_map: any) => {
   if (userStore.travelStatus.isTraveling && userStore.currentLocation && userStore.destination) {
     updateMapPath()
   }
+}
+
+const handleMapFallback = (event: any) => {
+  console.warn('地图降级:', event)
+  mapFallbackMode.value = true
+  ElMessage.warning('地图服务暂时不可用，使用模拟模式')
 }
 
 const handleMapClick = (event: any) => {

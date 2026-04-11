@@ -12,6 +12,12 @@ import './assets/main.css'
 // 导入API错误处理器
 import { initApiErrorMonitoring } from './utils/apiErrorHandler'
 
+// 环境变量测试（开发环境）
+if (import.meta.env.DEV) {
+  console.log('🔧 开发模式：环境变量测试')
+  console.log('VITE_AMAP_API_KEY:', import.meta.env.VITE_AMAP_API_KEY ? '已配置' : '未配置')
+}
+
 const app = createApp(App)
 
 app.use(createPinia())

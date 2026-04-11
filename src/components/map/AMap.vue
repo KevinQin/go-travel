@@ -131,6 +131,7 @@ const emit = defineEmits<{
   'map-click': [event: any]
   'marker-click': [marker: any]
   'position-update': [position: [number, number]]
+  'map-fallback': [event: { type: string; message: string; error: any }]
 }>()
 
 // 响应式数据
@@ -155,11 +156,13 @@ const initMap = async () => {
   error.value = false
   
   try {
+    // 检查API Key
+    if (!props.apiKey || props.apiKey === 'your_amap_api_key_here') {
+      throw new Error('请提供高德地图API Key')
+    }
+    
     // 加载SDK
     if (!window.AMap) {
-      if (!props.apiKey) {
-        throw new Error('请提供高德地图API Key')
-      }
       await loadAMapSDK(props.apiKey)
     }
     
@@ -209,8 +212,20 @@ const initMap = async () => {
     ElMessage.success('地图加载完成')
   } catch (err) {
     console.error('地图初始化失败:', err)
+    console.error('❌ 高德地图API Key可能无效或配置错误')
+    console.error('📱 提示: 请检查GitHub Secrets中的AMAP_API_KEY配置')
+    console.error('📱 当前API Key:', props.apiKey ? props.apiKey.substring(0, 8) + '...' : '未提供')
+    
+    // 显示降级提示
     error.value = true
-    ElMessage.error('地图加载失败，请检查API Key')
+    ElMessage.warning('地图加载失败，使用模拟模式')
+    
+    // 触发降级事件
+    emit('map-fallback', {
+      type: 'api-key-error',
+      message: '高德地图API Key配置错误，使用模拟模式',
+      error: err
+    })
   } finally {
     loading.value = false
   }
