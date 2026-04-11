@@ -163,8 +163,12 @@ const initMap = async () => {
       await loadAMapSDK(props.apiKey)
     }
     
+    // 确定地图中心点：优先使用当前位置，其次使用props.center
+    const mapCenter = props.currentPosition || props.center
+    const mapZoom = props.zoom
+    
     // 创建地图实例
-    const map = await createMap(mapContainer.value.id, props.center, props.zoom)
+    const map = await createMap(mapContainer.value.id, mapCenter, mapZoom)
     mapInstance.value = map
     
     // 设置交互
@@ -182,14 +186,11 @@ const initMap = async () => {
     // 添加省份标记
     addProvinceMarkers(map)
     
-    // 添加旅行路径（移除，只显示已走过的路径）
-    // if (props.travelPath) {
-    //   addTravelPath(map, props.travelPath)
-    // }
-    
     // 添加当前位置标记
     if (props.currentPosition) {
       addCurrentPositionMarker(map, props.currentPosition)
+      // 确保地图以当前位置为中心
+      map.setCenter(props.currentPosition)
     }
     
     // 添加已走过的路径
@@ -436,8 +437,30 @@ const switchMapType = (type: 'normal' | 'satellite') => {
   if (!mapInstance.value) return
   
   mapType.value = type
-  const style = type === 'satellite' ? 'amap://styles/satellite' : 'amap://styles/light'
+  
+  // 高德地图样式配置
+  // 标准地图：amap://styles/normal
+  // 卫星地图：amap://styles/satellite（真正的卫星图像）
+  // 夜间地图：amap://styles/dark
+  // 清新地图：amap://styles/fresh
+  // 马卡龙地图：amap://styles/macaron
+  // 涂鸦地图：amap://styles/graffiti
+  
+  let style: string
+  if (type === 'satellite') {
+    // 真正的卫星地图（包含卫星图像和路网）
+    style = 'amap://styles/satellite'
+  } else {
+    // 标准地图
+    style = 'amap://styles/normal'
+  }
+  
   mapInstance.value.setMapStyle(style)
+  
+  // 如果是卫星地图，调整缩放级别以更好地显示
+  if (type === 'satellite' && mapInstance.value.getZoom() < 10) {
+    mapInstance.value.setZoom(12)
+  }
 }
 
 // 公开方法

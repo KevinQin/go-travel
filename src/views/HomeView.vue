@@ -172,21 +172,28 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { provinces } from '@/data/provinces'
 import { ElMessage } from 'element-plus'
 
 const userStore = useUserStore()
+const router = useRouter()
 
 // 热门省份（前6个）
 const popularProvinces = computed(() => provinces.slice(0, 6))
 
-const selectProvince = (province: any) => {
-  userStore.selectProvince(province)
-  ElMessage.success(`已选择 ${province.name}，坐骑：${province.icon}`)
-  setTimeout(() => {
-    window.location.href = '/travel'
-  }, 1000)
+const selectProvince = async (province: any) => {
+  const success = await userStore.selectProvince(province)
+  if (success) {
+    ElMessage.success(`已选择 ${province.name}，坐骑：${province.icon}`)
+    // 使用Vue Router进行导航，自动处理基础路径
+    setTimeout(() => {
+      router.push('/travel')
+    }, 1000)
+  } else {
+    ElMessage.error('选择省份失败，请重试')
+  }
 }
 </script>
 

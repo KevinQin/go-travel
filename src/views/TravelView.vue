@@ -357,7 +357,7 @@ const mapCenter = computed<[number, number]>(() => {
   // 否则使用默认位置（北京）
   return [116.397428, 39.90923]
 })
-const mapZoom = ref(15)
+const mapZoom = ref(12) // 增加默认缩放级别，显示更大的地图区域
 const currentTravelPath = ref<{
   from: [number, number]
   to: [number, number]
@@ -793,7 +793,18 @@ onMounted(() => {
   flex: 1;
   background: #f0f2f5;
   position: relative;
-  min-height: 500px;
+  min-height: 70vh; /* 改为视口高度的70%，提供更大的地图区域 */
+  height: calc(100vh - 200px); /* 动态计算高度，减去顶部状态栏和底部控制面板 */
+}
+
+.amap-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .map-placeholder {
